@@ -211,7 +211,7 @@ class TaskMapperImplTest {
             // Act
             TaskDTO taskDTO = taskMapper.toDTO(task);
 
-            // Assert - Verify all fields are preserved
+            // Assert
             assertThat(taskDTO.id()).isEqualTo(task.getId());
             assertThat(taskDTO.title()).isEqualTo(task.getTitle());
             assertThat(taskDTO.description()).isEqualTo(task.getDescription());
@@ -273,7 +273,6 @@ class TaskMapperImplTest {
             assertThat(task.getDueDate()).isEqualTo(dueDate);
             assertThat(task.getPriority()).isEqualTo(TaskPriority.HIGH);
             assertThat(task.getStatus()).isEqualTo(TaskStatus.IN_PROGRESS);
-            // Note: TaskList relationship not set by mapper, handled by service
             assertThat(task.getTaskList()).isNull();
         }
 
@@ -413,7 +412,7 @@ class TaskMapperImplTest {
         @Test
         @DisplayName("Should handle all combinations of priority and status")
         void shouldHandleAllPriorityStatusCombinations() {
-            // Arrange - High priority, Closed status
+            // Arrange
             TaskDTO taskDTO = new TaskDTO(
                     UUID.randomUUID(),
                     "Completed High Priority Task",
@@ -471,7 +470,7 @@ class TaskMapperImplTest {
             // Act
             Task task = taskMapper.fromDTO(taskDTO);
 
-            // Assert - Verify all fields are preserved
+            // Assert
             assertThat(task.getId()).isEqualTo(taskDTO.id());
             assertThat(task.getTitle()).isEqualTo(taskDTO.title());
             assertThat(task.getDescription()).isEqualTo(taskDTO.description());

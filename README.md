@@ -91,12 +91,21 @@ backend/src/main/java/com/gozzerks/taskflow/
 
 # Test Directory
 backend/src/test/java/com/gozzerks/taskflow/
-├── controllers/               # REST API integration tests
+├── controllers/                    # REST API integration tests
 │   ├── TaskControllerTest.java
-│   └── TaskListControllerTest.java
-├── repositories/              # Data layer tests
+│   ├── TaskListControllerTest.java
+│   └── GlobalExceptionHandlerTest.java
+├── domain/
+│   └── dto/                        # DTO validation tests
+│       ├── TaskDtoTest.java
+│       ├── TaskListDtoTest.java
+│       └── CreateTaskDtoTest.java
+├── mappers/impl/                   # Mapper conversion tests
+│   ├── TaskMapperImplTest.java
+│   └── TaskListMapperImplTest.java
+├── repositories/                   # Data layer tests
 │   └── TaskRepositoryTest.java
-└── services/impl/             # Service layer implementation tests
+└── services/impl/                  # Service layer implementation tests
     ├── TaskListServiceImplTest.java
     └── TaskServiceImplTest.java
 
@@ -393,6 +402,62 @@ Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
 - Task retrieval (by list ID, by ID, empty results)
 - Task updates (field updates, relationship preservation, validation)
 - Task deletion (successful, non-existent, exception handling)
+
+### Mapper Tests
+
+Entity-DTO conversion testing using **JUnit 5** and **AssertJ**:
+
+**TaskMapperImplTest.java** (30+ tests):
+- toDTO: Entity to DTO mapping (all fields, null handling, relationships)
+- fromDTO: DTO to Entity mapping (field validation, null safety)
+- Null entity/DTO handling
+- Field mapping accuracy
+
+**TaskListMapperImplTest.java** (20+ tests):
+- toDTO: Entity to DTO with progress calculation
+- fromDTO: DTO to Entity conversion
+- Progress calculation accuracy
+- Empty/null task list handling
+
+### DTO Validation Tests
+
+Bean validation testing using **Jakarta Validator** and **AssertJ**:
+
+**TaskDtoTest.java** (20+ tests):
+- Title validation (null, blank, max length, special characters)
+- Description validation (optional, max length)
+- Priority/Status enum validation
+- Due date validation (null allowed, past/future dates)
+- TaskList ID validation
+- Multiple validation error handling
+
+**TaskListDtoTest.java** (10+ tests):
+- Title validation (required, max length, whitespace)
+- Description validation (optional, max length)
+- Progress validation (range, negative values)
+- Task count validation
+- Complete DTO validation
+
+**CreateTaskDtoTest.java** (20+ tests):
+- Required field validation (title, priority, status)
+- Optional field validation (description, dueDate)
+- TaskList ID requirement
+- Field length constraints
+- Special character handling
+
+### Exception Handler Tests
+
+Global error handling testing using **MockMvc** and **@WebMvcTest**:
+
+**GlobalExceptionHandlerTest.java** (15+ tests):
+- IllegalArgumentException handling (400 responses)
+- Error response structure validation
+- Custom/empty/null exception messages
+- Special characters and emojis in messages
+- Long exception message handling
+- JSON content type verification
+- Request path inclusion in errors
+- Security (no stack trace exposure)
 
 ### Test Coverage
 ```bash
