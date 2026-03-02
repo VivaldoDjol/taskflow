@@ -16,7 +16,7 @@ TaskFlow is a task management application that enables users to organize their w
 
 ## Key Features (Backend Implementation)
 
-### 🎯 Core Backend Features
+### Core Backend Features
 - **RESTful API Design**: Fully functional REST endpoints following industry standards
 - **Task List Management**: Complete CRUD operations with automatic progress calculation
 - **Task Operations**: Nested resource management within task lists
@@ -345,54 +345,54 @@ curl -X POST http://localhost:8080/api/task-lists \
 
 ## Testing & Quality Assurance
 
-### Controller Tests ✅
+### Controller Tests
 
 REST API testing using **MockMvc**, **Mockito**, and **AAA pattern** (Arrange-Act-Assert):
 
 **TaskListControllerTest.java** (15+ tests):
-- ✅ List operations (all lists, empty list scenarios)
-- ✅ Get single task list (success and 404 cases)
-- ✅ Create task list with validation (title required, blank detection, max length)
-- ✅ Update task list (success, validation errors, 404 handling)
-- ✅ Delete task list (success, 404 handling, cascade delete verification)
-- ✅ Error handling (malformed JSON, invalid UUID format)
+- List operations (all lists, empty list scenarios)
+- Get single task list (success and 404 cases)
+- Create task list with validation (title required, blank detection, max length)
+- Update task list (success, validation errors, 404 handling)
+- Delete task list (success, 404 handling, cascade delete verification)
+- Error handling (malformed JSON, invalid UUID format)
 
 **TaskControllerTest.java** (10+ tests):
-- ✅ List tasks within task list (populated and empty)
-- ✅ Get single task (success and 404 cases)
-- ✅ Create task with nested routing validation
-- ✅ Update task status and priority
-- ✅ Delete task operations
-- ✅ Task list relationship validation
+- List tasks within task list (populated and empty)
+- Get single task (success and 404 cases)
+- Create task with nested routing validation
+- Update task status and priority
+- Delete task operations
+- Task list relationship validation
 
-### Repository Tests ✅
+### Repository Tests
 
 Data layer testing using **@DataJpaTest** with **H2 in-memory database**:
 
 **TaskRepositoryTest.java** (15+ tests):
-- ✅ Custom query methods (`findByTaskListId`, `findByTaskListIdAndId`)
-- ✅ Cascade delete operations
-- ✅ Entity relationship integrity
-- ✅ Empty result handling
-- ✅ Task-TaskList bidirectional relationship
-- ✅ Transactional behavior verification
+- Custom query methods (`findByTaskListId`, `findByTaskListIdAndId`)
+- Cascade delete operations
+- Entity relationship integrity
+- Empty result handling
+- Task-TaskList bidirectional relationship
+- Transactional behavior verification
 
-### Service Tests ✅
+### Service Tests
 
 Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
 
 **TaskListServiceImplTest.java** (20+ tests):
-- ✅ Find all operations (multiple lists, empty results)
-- ✅ Get task list (existing ID, non-existent ID, null handling)
-- ✅ Create task list (successful creation, timestamp setting, validation)
-- ✅ Update task list (successful update, timestamp updates, non-existent ID)
-- ✅ Delete task list (successful deletion, non-existent ID, cascade verification)
+- Find all operations (multiple lists, empty results)
+- Get task list (existing ID, non-existent ID, null handling)
+- Create task list (successful creation, timestamp setting, validation)
+- Update task list (successful update, timestamp updates, non-existent ID)
+- Delete task list (successful deletion, non-existent ID, cascade verification)
 
 **TaskServiceImplTest.java** (20+ tests):
-- ✅ Task creation (with valid list, relationship setup, validation)
-- ✅ Task retrieval (by list ID, by ID, empty results)
-- ✅ Task updates (field updates, relationship preservation, validation)
-- ✅ Task deletion (successful, non-existent, exception handling)
+- Task creation (with valid list, relationship setup, validation)
+- Task retrieval (by list ID, by ID, empty results)
+- Task updates (field updates, relationship preservation, validation)
+- Task deletion (successful, non-existent, exception handling)
 
 ### Test Coverage
 ```bash
@@ -440,33 +440,33 @@ Tests use H2 in-memory database for isolation and speed.
 ## Technical Skills Demonstrated
 
 ### Backend
-✅ **Spring Boot Application Development**
+ **Spring Boot Application Development**
 - Dependency injection and IoC container
 - Spring MVC for REST controllers
 - Spring Data JPA for persistence
 
-✅ **RESTful API Design**
+ **RESTful API Design**
 - Proper HTTP methods and status codes
 - Resource-based URLs
 - Nested resource handling
 
-✅ **Database Management**
+ **Database Management**
 - PostgreSQL for production
 - H2 for testing
 - JPA entity relationships
 - Database migrations with Hibernate
 
-✅ **Code Organization**
+ **Code Organization**
 - Layered architecture (Controller → Service → Repository)
 - Separation of concerns
 - DTO pattern for API contracts
 
-✅ **Error Handling**
+ **Error Handling**
 - Global exception handling
 - Custom error responses
 - Input validation
 
-✅ **Build & Deployment**
+ **Build & Deployment**
 - Maven project management
 - Docker containerization
 - Environment configuration
