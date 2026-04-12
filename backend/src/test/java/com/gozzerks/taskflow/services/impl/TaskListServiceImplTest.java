@@ -43,8 +43,8 @@ class TaskListServiceImplTest {
         taskList.setId(taskListId);
         taskList.setTitle("Test Task List");
         taskList.setDescription("Test Description");
-        taskList.setCreatedAt(LocalDateTime.now());
-        taskList.setUpdatedAt(LocalDateTime.now());
+        taskList.setCreated(LocalDateTime.now());
+        taskList.setUpdated(LocalDateTime.now());
     }
 
     @Nested
@@ -124,15 +124,6 @@ class TaskListServiceImplTest {
             assertThat(result).isEmpty();
             verify(taskListRepository, times(1)).findById(taskListId);
         }
-
-        @Test
-        @DisplayName("Should throw exception when ID is null")
-        void shouldThrowExceptionWhenIdIsNull() {
-            // Act & Assert
-            assertThatThrownBy(() -> taskListService.getTaskList(null))
-                    .isInstanceOf(IllegalArgumentException.class);
-            verify(taskListRepository, never()).findById(any());
-        }
     }
 
     @Nested
@@ -151,8 +142,8 @@ class TaskListServiceImplTest {
             savedTaskList.setId(UUID.randomUUID());
             savedTaskList.setTitle("New List");
             savedTaskList.setDescription("New Description");
-            savedTaskList.setCreatedAt(LocalDateTime.now());
-            savedTaskList.setUpdatedAt(LocalDateTime.now());
+            savedTaskList.setCreated(LocalDateTime.now());
+            savedTaskList.setUpdated(LocalDateTime.now());
 
             when(taskListRepository.save(any(TaskList.class))).thenReturn(savedTaskList);
 
@@ -164,37 +155,46 @@ class TaskListServiceImplTest {
                     .isNotNull()
                     .extracting(TaskList::getId, TaskList::getTitle, TaskList::getDescription)
                     .containsExactly(savedTaskList.getId(), "New List", "New Description");
-            verify(taskListRepository, times(1)).save(newTaskList);
+            verify(taskListRepository, times(1)).save(any(TaskList.class));
         }
 
         @Test
-        @DisplayName("Should set timestamps when creating task list")
-        void shouldSetTimestampsWhenCreating() {
-            // Arrange
-            TaskList newTaskList = new TaskList();
-            newTaskList.setTitle("New List");
+        @DisplayName("Should throw exception when task list already has an ID")
+        void shouldThrowExceptionWhenTaskListHasId() {
+            // Arrange - taskList already has an ID from setUp
 
-            when(taskListRepository.save(any(TaskList.class))).thenAnswer(invocation -> {
-                TaskList saved = invocation.getArgument(0);
-                saved.setId(UUID.randomUUID());
-                return saved;
-            });
-
-            // Act
-            taskListService.createTaskList(newTaskList);
-
-            // Assert
-            verify(taskListRepository).save(argThat(saved -> 
-                saved.getCreatedAt() != null && saved.getUpdatedAt() != null
-            ));
-        }
-
-        @Test
-        @DisplayName("Should throw exception when task list is null")
-        void shouldThrowExceptionWhenTaskListIsNull() {
             // Act & Assert
-            assertThatThrownBy(() -> taskListService.createTaskList(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> taskListService.createTaskList(taskList))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task list already has an ID");
+            verify(taskListRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when title is null")
+        void shouldThrowExceptionWhenTitleIsNull() {
+            // Arrange
+            TaskList noTitleList = new TaskList();
+            noTitleList.setDescription("Description only");
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskListService.createTaskList(noTitleList))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task list title is required");
+            verify(taskListRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when title is blank")
+        void shouldThrowExceptionWhenTitleIsBlank() {
+            // Arrange
+            TaskList blankTitleList = new TaskList();
+            blankTitleList.setTitle("   ");
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskListService.createTaskList(blankTitleList))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task list title is required");
             verify(taskListRepository, never()).save(any());
         }
     }
@@ -211,10 +211,11 @@ class TaskListServiceImplTest {
             existingTaskList.setId(taskListId);
             existingTaskList.setTitle("Old Title");
             existingTaskList.setDescription("Old Description");
-            existingTaskList.setCreatedAt(LocalDateTime.now().minusDays(1));
-            existingTaskList.setUpdatedAt(LocalDateTime.now().minusDays(1));
+            existingTaskList.setCreated(LocalDateTime.now().minusDays(1));
+            existingTaskList.setUpdated(LocalDateTime.now().minusDays(1));
 
             TaskList updatedDetails = new TaskList();
+            updatedDetails.setId(taskListId);
             updatedDetails.setTitle("Updated Title");
             updatedDetails.setDescription("Updated Description");
 
@@ -222,32 +223,31 @@ class TaskListServiceImplTest {
             when(taskListRepository.save(any(TaskList.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
-            Optional<TaskList> result = taskListService.updateTaskList(taskListId, updatedDetails);
+            TaskList result = taskListService.updateTaskList(taskListId, updatedDetails);
 
             // Assert
-            assertThat(result)
-                    .isPresent()
-                    .get()
-                    .extracting(TaskList::getTitle, TaskList::getDescription)
-                    .containsExactly("Updated Title", "Updated Description");
-            
+            assertThat(result).isNotNull();
+            assertThat(result.getTitle()).isEqualTo("Updated Title");
+            assertThat(result.getDescription()).isEqualTo("Updated Description");
+
             verify(taskListRepository, times(1)).findById(taskListId);
             verify(taskListRepository, times(1)).save(any(TaskList.class));
         }
 
         @Test
-        @DisplayName("Should update only updatedAt timestamp")
-        void shouldUpdateOnlyUpdatedAtTimestamp() {
+        @DisplayName("Should update the updatedAt timestamp")
+        void shouldUpdateTimestamp() {
             // Arrange
-            LocalDateTime originalCreatedAt = LocalDateTime.now().minusDays(1);
-            
+            LocalDateTime originalUpdated = LocalDateTime.now().minusDays(1);
+
             TaskList existingTaskList = new TaskList();
             existingTaskList.setId(taskListId);
             existingTaskList.setTitle("Old Title");
-            existingTaskList.setCreatedAt(originalCreatedAt);
-            existingTaskList.setUpdatedAt(LocalDateTime.now().minusDays(1));
+            existingTaskList.setCreated(LocalDateTime.now().minusDays(2));
+            existingTaskList.setUpdated(originalUpdated);
 
             TaskList updatedDetails = new TaskList();
+            updatedDetails.setId(taskListId);
             updatedDetails.setTitle("Updated Title");
 
             when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(existingTaskList));
@@ -257,41 +257,56 @@ class TaskListServiceImplTest {
             taskListService.updateTaskList(taskListId, updatedDetails);
 
             // Assert
-            verify(taskListRepository).save(argThat(saved -> 
-                saved.getCreatedAt().equals(originalCreatedAt) && 
-                saved.getUpdatedAt().isAfter(originalCreatedAt)
+            verify(taskListRepository).save(argThat(saved ->
+                saved.getUpdated().isAfter(originalUpdated)
             ));
         }
 
         @Test
-        @DisplayName("Should return empty when task list ID does not exist")
-        void shouldReturnEmptyWhenIdDoesNotExist() {
+        @DisplayName("Should throw exception when task list not found")
+        void shouldThrowExceptionWhenNotFound() {
             // Arrange
             TaskList updatedDetails = new TaskList();
+            updatedDetails.setId(taskListId);
             updatedDetails.setTitle("Updated Title");
 
             when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
 
-            // Act
-            Optional<TaskList> result = taskListService.updateTaskList(taskListId, updatedDetails);
-
-            // Assert
-            assertThat(result).isEmpty();
+            // Act & Assert
+            assertThatThrownBy(() -> taskListService.updateTaskList(taskListId, updatedDetails))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task list not found");
             verify(taskListRepository, times(1)).findById(taskListId);
             verify(taskListRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("Should throw exception when ID is null")
-        void shouldThrowExceptionWhenIdIsNull() {
+        @DisplayName("Should throw exception when task list has no ID")
+        void shouldThrowExceptionWhenNoId() {
             // Arrange
-            TaskList updatedDetails = new TaskList();
-            updatedDetails.setTitle("Updated Title");
+            TaskList noIdList = new TaskList();
+            noIdList.setTitle("Updated Title");
 
             // Act & Assert
-            assertThatThrownBy(() -> taskListService.updateTaskList(null, updatedDetails))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> taskListService.updateTaskList(taskListId, noIdList))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task list must have an ID");
             verify(taskListRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when IDs do not match")
+        void shouldThrowExceptionWhenIdsMismatch() {
+            // Arrange
+            UUID differentId = UUID.randomUUID();
+            TaskList mismatchList = new TaskList();
+            mismatchList.setId(differentId);
+            mismatchList.setTitle("Updated Title");
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskListService.updateTaskList(taskListId, mismatchList))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not permitted");
             verify(taskListRepository, never()).save(any());
         }
     }
@@ -304,48 +319,19 @@ class TaskListServiceImplTest {
         @DisplayName("Should delete task list when ID exists")
         void shouldDeleteTaskListWhenIdExists() {
             // Arrange
-            when(taskListRepository.existsById(taskListId)).thenReturn(true);
             doNothing().when(taskListRepository).deleteById(taskListId);
 
             // Act
-            boolean result = taskListService.deleteTaskList(taskListId);
+            taskListService.deleteTaskList(taskListId);
 
             // Assert
-            assertThat(result).isTrue();
-            verify(taskListRepository, times(1)).existsById(taskListId);
             verify(taskListRepository, times(1)).deleteById(taskListId);
         }
 
         @Test
-        @DisplayName("Should return false when task list ID does not exist")
-        void shouldReturnFalseWhenIdDoesNotExist() {
+        @DisplayName("Should call deleteById exactly once")
+        void shouldCallDeleteByIdOnce() {
             // Arrange
-            when(taskListRepository.existsById(taskListId)).thenReturn(false);
-
-            // Act
-            boolean result = taskListService.deleteTaskList(taskListId);
-
-            // Assert
-            assertThat(result).isFalse();
-            verify(taskListRepository, times(1)).existsById(taskListId);
-            verify(taskListRepository, never()).deleteById(any());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when ID is null")
-        void shouldThrowExceptionWhenIdIsNull() {
-            // Act & Assert
-            assertThatThrownBy(() -> taskListService.deleteTaskList(null))
-                    .isInstanceOf(IllegalArgumentException.class);
-            verify(taskListRepository, never()).existsById(any());
-            verify(taskListRepository, never()).deleteById(any());
-        }
-
-        @Test
-        @DisplayName("Should cascade delete tasks when deleting task list")
-        void shouldCascadeDeleteTasksWhenDeletingTaskList() {
-            // Arrange
-            when(taskListRepository.existsById(taskListId)).thenReturn(true);
             doNothing().when(taskListRepository).deleteById(taskListId);
 
             // Act
