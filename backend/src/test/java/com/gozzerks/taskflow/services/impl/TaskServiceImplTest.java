@@ -1,7 +1,9 @@
 package com.gozzerks.taskflow.services.impl;
 
-import com.gozzerks.taskflow.entities.Task;
-import com.gozzerks.taskflow.entities.TaskList;
+import com.gozzerks.taskflow.domain.entities.Task;
+import com.gozzerks.taskflow.domain.entities.TaskList;
+import com.gozzerks.taskflow.domain.entities.TaskPriority;
+import com.gozzerks.taskflow.domain.entities.TaskStatus;
 import com.gozzerks.taskflow.repositories.TaskListRepository;
 import com.gozzerks.taskflow.repositories.TaskRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,18 +11,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataAccessException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,121 +41,42 @@ class TaskServiceImplTest {
 
     private Task task;
     private TaskList taskList;
-    private Long taskId;
-    private Long taskListId;
+    private UUID taskId;
+    private UUID taskListId;
 
     @BeforeEach
     void setUp() {
-        taskId = 1L;
-        taskListId = 1L;
+        taskId = UUID.randomUUID();
+        taskListId = UUID.randomUUID();
 
         taskList = new TaskList();
         taskList.setId(taskListId);
-        taskList.setName("Test Task List");
+        taskList.setTitle("Test Task List");
+        taskList.setDescription("Test Description");
+        taskList.setCreated(LocalDateTime.now());
+        taskList.setUpdated(LocalDateTime.now());
 
         task = new Task();
         task.setId(taskId);
         task.setTitle("Test Task");
         task.setDescription("Test Description");
-        task.setCompleted(false);
+        task.setPriority(TaskPriority.HIGH);
+        task.setStatus(TaskStatus.OPEN);
         task.setTaskList(taskList);
+        task.setCreated(LocalDateTime.now());
+        task.setUpdated(LocalDateTime.now());
     }
 
     @Nested
-    @DisplayName("Create Task")
-    class CreateTaskTests {
+    @DisplayName("List Tasks Tests")
+    class ListTasksTests {
 
         @Test
-        @DisplayName("Should create task successfully with valid task list")
-        void shouldCreateTaskSuccessfully() {
-            // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
-            when(taskRepository.save(any(Task.class))).thenReturn(task);
-
-            // Act
-            Task result = taskService.createTask(taskListId, task);
-
-            // Assert
-            assertThat(result).isNotNull();
-            assertThat(result.getTitle()).isEqualTo("Test Task");
-            assertThat(result.getTaskList()).isEqualTo(taskList);
-            verify(taskListRepository).findById(taskListId);
-            verify(taskRepository).save(task);
-        }
-
-        @Test
-        @DisplayName("Should set task list relationship when creating task")
-        void shouldSetTaskListRelationship() {
-            // Arrange
-            ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
-            when(taskRepository.save(any(Task.class))).thenReturn(task);
-
-            // Act
-            taskService.createTask(taskListId, task);
-
-            // Assert
-            verify(taskRepository).save(taskCaptor.capture());
-            Task capturedTask = taskCaptor.getValue();
-            assertThat(capturedTask.getTaskList()).isEqualTo(taskList);
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when task list not found")
-        void shouldThrowExceptionWhenTaskListNotFound() {
-            // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
-
-            // Act & Assert
-            assertThatThrownBy(() -> taskService.createTask(taskListId, task))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("TaskList not found with id: " + taskListId);
-
-            verify(taskListRepository).findById(taskListId);
-            verify(taskRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when task is null")
-        void shouldThrowExceptionWhenTaskIsNull() {
-            // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
-
-            // Act & Assert
-            assertThatThrownBy(() -> taskService.createTask(taskListId, null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Task cannot be null");
-
-            verify(taskRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Should handle repository exceptions during save")
-        void shouldHandleRepositoryExceptions() {
-            // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
-            when(taskRepository.save(any(Task.class)))
-                    .thenThrow(new DataAccessException("Database error") {});
-
-            // Act & Assert
-            assertThatThrownBy(() -> taskService.createTask(taskListId, task))
-                    .isInstanceOf(DataAccessException.class)
-                    .hasMessageContaining("Database error");
-
-            verify(taskRepository).save(any(Task.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("Retrieve Tasks")
-    class RetrieveTasksTests {
-
-        @Test
-        @DisplayName("Should retrieve all tasks for a task list")
-        void shouldRetrieveAllTasksForTaskList() {
+        @DisplayName("Should return all tasks for a task list")
+        void shouldReturnAllTasksForTaskList() {
             // Arrange
             Task task2 = new Task();
-            task2.setId(2L);
+            task2.setId(UUID.randomUUID());
             task2.setTitle("Second Task");
             task2.setTaskList(taskList);
 
@@ -160,7 +84,7 @@ class TaskServiceImplTest {
             when(taskRepository.findByTaskListId(taskListId)).thenReturn(tasks);
 
             // Act
-            List<Task> result = taskService.getTasksByTaskListId(taskListId);
+            List<Task> result = taskService.listTasks(taskListId);
 
             // Assert
             assertThat(result).hasSize(2);
@@ -169,66 +93,204 @@ class TaskServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should return empty list when no tasks exist for task list")
+        @DisplayName("Should return empty list when no tasks exist")
         void shouldReturnEmptyListWhenNoTasksExist() {
             // Arrange
             when(taskRepository.findByTaskListId(taskListId)).thenReturn(List.of());
 
             // Act
-            List<Task> result = taskService.getTasksByTaskListId(taskListId);
+            List<Task> result = taskService.listTasks(taskListId);
 
             // Assert
             assertThat(result).isEmpty();
             verify(taskRepository).findByTaskListId(taskListId);
         }
+    }
+
+    @Nested
+    @DisplayName("Get Task Tests")
+    class GetTaskTests {
 
         @Test
-        @DisplayName("Should retrieve task by ID successfully")
-        void shouldRetrieveTaskById() {
+        @DisplayName("Should return task when both IDs match")
+        void shouldReturnTaskWhenBothIdsMatch() {
             // Arrange
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+            when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
 
             // Act
-            Optional<Task> result = taskService.getTaskById(taskId);
+            Optional<Task> result = taskService.getTask(taskListId, taskId);
 
             // Assert
             assertThat(result).isPresent();
             assertThat(result.get()).isEqualTo(task);
-            assertThat(result.get().getTitle()).isEqualTo("Test Task");
-            verify(taskRepository).findById(taskId);
+            verify(taskRepository).findByTaskListIdAndId(taskListId, taskId);
         }
 
         @Test
-        @DisplayName("Should return empty optional when task not found by ID")
+        @DisplayName("Should return empty when task not found")
         void shouldReturnEmptyWhenTaskNotFound() {
             // Arrange
-            when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+            when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.empty());
 
             // Act
-            Optional<Task> result = taskService.getTaskById(taskId);
+            Optional<Task> result = taskService.getTask(taskListId, taskId);
 
             // Assert
             assertThat(result).isEmpty();
-            verify(taskRepository).findById(taskId);
-        }
-
-        @Test
-        @DisplayName("Should handle null task list ID gracefully")
-        void shouldHandleNullTaskListId() {
-            // Arrange
-            when(taskRepository.findByTaskListId(null)).thenReturn(List.of());
-
-            // Act
-            List<Task> result = taskService.getTasksByTaskListId(null);
-
-            // Assert
-            assertThat(result).isEmpty();
-            verify(taskRepository).findByTaskListId(null);
+            verify(taskRepository).findByTaskListIdAndId(taskListId, taskId);
         }
     }
 
     @Nested
-    @DisplayName("Update Task")
+    @DisplayName("Create Task Tests")
+    class CreateTaskTests {
+
+        @Test
+        @DisplayName("Should create task successfully with valid task list")
+        void shouldCreateTaskSuccessfully() {
+            // Arrange
+            Task newTask = new Task();
+            newTask.setTitle("New Task");
+            newTask.setDescription("New Description");
+            newTask.setPriority(TaskPriority.MEDIUM);
+
+            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+                Task saved = invocation.getArgument(0);
+                saved.setId(UUID.randomUUID());
+                return saved;
+            });
+
+            // Act
+            Task result = taskService.createTask(taskListId, newTask);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTitle()).isEqualTo("New Task");
+            assertThat(result.getStatus()).isEqualTo(TaskStatus.OPEN);
+            assertThat(result.getTaskList()).isEqualTo(taskList);
+            verify(taskListRepository).findById(taskListId);
+            verify(taskRepository).save(any(Task.class));
+        }
+
+        @Test
+        @DisplayName("Should default priority to MEDIUM when not provided")
+        void shouldDefaultPriorityToMedium() {
+            // Arrange
+            Task newTask = new Task();
+            newTask.setTitle("Task Without Priority");
+
+            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // Act
+            taskService.createTask(taskListId, newTask);
+
+            // Assert
+            verify(taskRepository).save(argThat(saved ->
+                saved.getPriority() == TaskPriority.MEDIUM
+            ));
+        }
+
+        @Test
+        @DisplayName("Should always set status to OPEN for new tasks")
+        void shouldAlwaysSetStatusToOpen() {
+            // Arrange
+            Task newTask = new Task();
+            newTask.setTitle("Task With Status");
+            newTask.setStatus(TaskStatus.CLOSED);
+
+            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // Act
+            taskService.createTask(taskListId, newTask);
+
+            // Assert
+            verify(taskRepository).save(argThat(saved ->
+                saved.getStatus() == TaskStatus.OPEN
+            ));
+        }
+
+        @Test
+        @DisplayName("Should throw exception when task already has an ID")
+        void shouldThrowExceptionWhenTaskHasId() {
+            // Arrange - task already has ID from setUp
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.createTask(taskListId, task))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task already has an ID");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when title is null")
+        void shouldThrowExceptionWhenTitleIsNull() {
+            // Arrange
+            Task noTitleTask = new Task();
+            noTitleTask.setDescription("Description only");
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.createTask(taskListId, noTitleTask))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task must have a title");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when title is blank")
+        void shouldThrowExceptionWhenTitleIsBlank() {
+            // Arrange
+            Task blankTitleTask = new Task();
+            blankTitleTask.setTitle("   ");
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.createTask(taskListId, blankTitleTask))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task must have a title");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when task list not found")
+        void shouldThrowExceptionWhenTaskListNotFound() {
+            // Arrange
+            Task newTask = new Task();
+            newTask.setTitle("New Task");
+
+            when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.createTask(taskListId, newTask))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Invalid Task List ID");
+            verify(taskListRepository).findById(taskListId);
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should set timestamps when creating task")
+        void shouldSetTimestamps() {
+            // Arrange
+            Task newTask = new Task();
+            newTask.setTitle("New Task");
+
+            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // Act
+            taskService.createTask(taskListId, newTask);
+
+            // Assert
+            verify(taskRepository).save(argThat(saved ->
+                saved.getCreated() != null && saved.getUpdated() != null
+            ));
+        }
+    }
+
+    @Nested
+    @DisplayName("Update Task Tests")
     class UpdateTaskTests {
 
         @Test
@@ -236,193 +298,166 @@ class TaskServiceImplTest {
         void shouldUpdateTaskWithNewValues() {
             // Arrange
             Task updates = new Task();
+            updates.setId(taskId);
             updates.setTitle("Updated Title");
             updates.setDescription("Updated Description");
-            updates.setCompleted(true);
+            updates.setPriority(TaskPriority.LOW);
+            updates.setStatus(TaskStatus.CLOSED);
 
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+            when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
-            Optional<Task> result = taskService.updateTask(taskId, updates);
+            Task result = taskService.updateTask(taskListId, taskId, updates);
 
             // Assert
-            assertThat(result).isPresent();
-            assertThat(result.get().getTitle()).isEqualTo("Updated Title");
-            assertThat(result.get().getDescription()).isEqualTo("Updated Description");
-            assertThat(result.get().isCompleted()).isTrue();
-            verify(taskRepository).findById(taskId);
+            assertThat(result).isNotNull();
+            assertThat(result.getTitle()).isEqualTo("Updated Title");
+            assertThat(result.getDescription()).isEqualTo("Updated Description");
+            assertThat(result.getPriority()).isEqualTo(TaskPriority.LOW);
+            assertThat(result.getStatus()).isEqualTo(TaskStatus.CLOSED);
+            verify(taskRepository).findByTaskListIdAndId(taskListId, taskId);
             verify(taskRepository).save(any(Task.class));
         }
 
         @Test
-        @DisplayName("Should preserve task list relationship during update")
-        void shouldPreserveTaskListRelationship() {
+        @DisplayName("Should throw exception when task not found")
+        void shouldThrowExceptionWhenTaskNotFound() {
             // Arrange
             Task updates = new Task();
-            updates.setTitle("Updated Title");
-
-            ArgumentCaptor<Task> taskCaptor = ArgumentCaptor.forClass(Task.class);
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
-            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            // Act
-            taskService.updateTask(taskId, updates);
-
-            // Assert
-            verify(taskRepository).save(taskCaptor.capture());
-            Task savedTask = taskCaptor.getValue();
-            assertThat(savedTask.getTaskList()).isEqualTo(taskList);
-        }
-
-        @Test
-        @DisplayName("Should update only provided fields")
-        void shouldUpdateOnlyProvidedFields() {
-            // Arrange
-            Task updates = new Task();
-            updates.setTitle("New Title Only");
-
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
-            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-            // Act
-            Optional<Task> result = taskService.updateTask(taskId, updates);
-
-            // Assert
-            assertThat(result).isPresent();
-            assertThat(result.get().getTitle()).isEqualTo("New Title Only");
-            assertThat(result.get().getDescription()).isEqualTo("Test Description");
-            assertThat(result.get().isCompleted()).isFalse();
-        }
-
-        @Test
-        @DisplayName("Should return empty optional when updating non-existent task")
-        void shouldReturnEmptyWhenTaskNotFound() {
-            // Arrange
-            Task updates = new Task();
+            updates.setId(taskId);
             updates.setTitle("Updated");
+            updates.setPriority(TaskPriority.MEDIUM);
+            updates.setStatus(TaskStatus.OPEN);
 
-            when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
-
-            // Act
-            Optional<Task> result = taskService.updateTask(taskId, updates);
-
-            // Assert
-            assertThat(result).isEmpty();
-            verify(taskRepository).findById(taskId);
-            verify(taskRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Should throw IllegalArgumentException when updates are null")
-        void shouldThrowExceptionWhenUpdatesAreNull() {
-            // Arrange
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
+            when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.empty());
 
             // Act & Assert
-            assertThatThrownBy(() -> taskService.updateTask(taskId, null))
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Task updates cannot be null");
-
+                    .hasMessageContaining("Task not found");
             verify(taskRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("Should handle repository exceptions during update")
-        void shouldHandleRepositoryExceptionsDuringUpdate() {
+        @DisplayName("Should throw exception when task has no ID")
+        void shouldThrowExceptionWhenNoId() {
             // Arrange
             Task updates = new Task();
             updates.setTitle("Updated");
-
-            when(taskRepository.findById(taskId)).thenReturn(Optional.of(task));
-            when(taskRepository.save(any(Task.class)))
-                    .thenThrow(new DataAccessException("Update failed") {});
+            updates.setPriority(TaskPriority.MEDIUM);
+            updates.setStatus(TaskStatus.OPEN);
 
             // Act & Assert
-            assertThatThrownBy(() -> taskService.updateTask(taskId, updates))
-                    .isInstanceOf(DataAccessException.class);
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task must have an ID");
+            verify(taskRepository, never()).save(any());
+        }
 
-            verify(taskRepository).save(any(Task.class));
+        @Test
+        @DisplayName("Should throw exception when task ID does not match path ID")
+        void shouldThrowExceptionWhenIdMismatch() {
+            // Arrange
+            UUID differentId = UUID.randomUUID();
+            Task updates = new Task();
+            updates.setId(differentId);
+            updates.setTitle("Updated");
+            updates.setPriority(TaskPriority.MEDIUM);
+            updates.setStatus(TaskStatus.OPEN);
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task ID does not match");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when priority is null")
+        void shouldThrowExceptionWhenPriorityNull() {
+            // Arrange
+            Task updates = new Task();
+            updates.setId(taskId);
+            updates.setTitle("Updated");
+            updates.setStatus(TaskStatus.OPEN);
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("priority");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when status is null")
+        void shouldThrowExceptionWhenStatusNull() {
+            // Arrange
+            Task updates = new Task();
+            updates.setId(taskId);
+            updates.setTitle("Updated");
+            updates.setPriority(TaskPriority.MEDIUM);
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("status");
+            verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should update the updated timestamp")
+        void shouldUpdateTimestamp() {
+            // Arrange
+            LocalDateTime originalUpdated = task.getUpdated();
+
+            Task updates = new Task();
+            updates.setId(taskId);
+            updates.setTitle("Updated Title");
+            updates.setPriority(TaskPriority.LOW);
+            updates.setStatus(TaskStatus.CLOSED);
+
+            when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
+            when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            // Act
+            taskService.updateTask(taskListId, taskId, updates);
+
+            // Assert
+            verify(taskRepository).save(argThat(saved ->
+                saved.getUpdated() != null
+            ));
         }
     }
 
     @Nested
-    @DisplayName("Delete Task")
+    @DisplayName("Delete Task Tests")
     class DeleteTaskTests {
 
         @Test
-        @DisplayName("Should delete existing task successfully")
+        @DisplayName("Should delete task successfully")
         void shouldDeleteTaskSuccessfully() {
             // Arrange
-            when(taskRepository.existsById(taskId)).thenReturn(true);
-            doNothing().when(taskRepository).deleteById(taskId);
+            doNothing().when(taskRepository).deleteByTaskListIdAndId(taskListId, taskId);
 
             // Act
-            boolean result = taskService.deleteTask(taskId);
+            taskService.deleteTask(taskListId, taskId);
 
             // Assert
-            assertThat(result).isTrue();
-            verify(taskRepository).existsById(taskId);
-            verify(taskRepository).deleteById(taskId);
+            verify(taskRepository).deleteByTaskListIdAndId(taskListId, taskId);
         }
 
         @Test
-        @DisplayName("Should return false when deleting non-existent task")
-        void shouldReturnFalseWhenTaskNotFound() {
+        @DisplayName("Should call deleteByTaskListIdAndId exactly once")
+        void shouldCallDeleteOnce() {
             // Arrange
-            when(taskRepository.existsById(taskId)).thenReturn(false);
+            doNothing().when(taskRepository).deleteByTaskListIdAndId(taskListId, taskId);
 
             // Act
-            boolean result = taskService.deleteTask(taskId);
+            taskService.deleteTask(taskListId, taskId);
 
             // Assert
-            assertThat(result).isFalse();
-            verify(taskRepository).existsById(taskId);
-            verify(taskRepository, never()).deleteById(any());
-        }
-
-        @Test
-        @DisplayName("Should invoke deleteById exactly once for existing task")
-        void shouldInvokeDeleteByIdOnce() {
-            // Arrange
-            when(taskRepository.existsById(taskId)).thenReturn(true);
-
-            // Act
-            taskService.deleteTask(taskId);
-
-            // Assert
-            verify(taskRepository, times(1)).deleteById(taskId);
-        }
-
-        @Test
-        @DisplayName("Should handle repository exceptions during delete")
-        void shouldHandleRepositoryExceptionsDuringDelete() {
-            // Arrange
-            when(taskRepository.existsById(taskId)).thenReturn(true);
-            doThrow(new DataAccessException("Delete failed") {})
-                    .when(taskRepository).deleteById(taskId);
-
-            // Act & Assert
-            assertThatThrownBy(() -> taskService.deleteTask(taskId))
-                    .isInstanceOf(DataAccessException.class)
-                    .hasMessageContaining("Delete failed");
-
-            verify(taskRepository).deleteById(taskId);
-        }
-
-        @Test
-        @DisplayName("Should handle null task ID")
-        void shouldHandleNullTaskId() {
-            // Arrange
-            when(taskRepository.existsById(null)).thenReturn(false);
-
-            // Act
-            boolean result = taskService.deleteTask(null);
-
-            // Assert
-            assertThat(result).isFalse();
-            verify(taskRepository).existsById(null);
-            verify(taskRepository, never()).deleteById(any());
+            verify(taskRepository, times(1)).deleteByTaskListIdAndId(taskListId, taskId);
         }
     }
 }
