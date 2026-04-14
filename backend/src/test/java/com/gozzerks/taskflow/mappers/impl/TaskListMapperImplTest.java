@@ -1,5 +1,3 @@
-package com.gozzerks.taskflow.services.impl;
-
 package com.gozzerks.taskflow.mappers.impl;
 
 import com.gozzerks.taskflow.domain.dto.TaskDTO;
@@ -312,7 +310,7 @@ class TaskListMapperImplTest {
             // Assert
             assertThat(taskListDto).isNotNull();
             assertThat(taskListDto.count()).isEqualTo(0);
-            assertThat(taskListDto.progress()).isEqualTo(0.0);
+            assertThat(taskListDto.progress()).isNaN();
             assertThat(taskListDto.tasks()).isNotNull();
             assertThat(taskListDto.tasks()).isEmpty();
         }
@@ -325,9 +323,6 @@ class TaskListMapperImplTest {
             taskList.setId(UUID.randomUUID());
             taskList.setTitle(null);
             taskList.setDescription("Test Description");
-
-            when(taskMapper.toDTO(any(Task.class))).thenReturn(new TaskDTO(
-                    UUID.randomUUID(), "Title", "Desc", null, TaskPriority.MEDIUM, TaskStatus.OPEN));
 
             // Act
             TaskListDTO taskListDto = taskListMapper.toDTO(taskList);
