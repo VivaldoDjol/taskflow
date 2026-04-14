@@ -2,14 +2,14 @@ package com.gozzerks.taskflow.repositories;
 
 import com.gozzerks.taskflow.domain.entities.Task;
 import com.gozzerks.taskflow.domain.entities.TaskList;
-import com.gozzerks.taskflow.domain.enums.TaskPriority;
-import com.gozzerks.taskflow.domain.enums.TaskStatus;
+import com.gozzerks.taskflow.domain.entities.TaskPriority;
+import com.gozzerks.taskflow.domain.entities.TaskStatus;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,9 +36,13 @@ class TaskRepositoryTest {
     @BeforeEach
     void setUp() {
         // Arrange
+        LocalDateTime now = LocalDateTime.now();
+
         taskList = new TaskList();
         taskList.setTitle("Test List");
         taskList.setDescription("Test Description");
+        taskList.setCreated(now);
+        taskList.setUpdated(now);
         taskList = entityManager.persistAndFlush(taskList);
 
         // Arrange
@@ -48,6 +52,8 @@ class TaskRepositoryTest {
         task1.setStatus(TaskStatus.OPEN);
         task1.setPriority(TaskPriority.HIGH);
         task1.setTaskList(taskList);
+        task1.setCreated(now);
+        task1.setUpdated(now);
         task1 = entityManager.persistAndFlush(task1);
 
         task2 = new Task();
@@ -56,6 +62,8 @@ class TaskRepositoryTest {
         task2.setStatus(TaskStatus.CLOSED);
         task2.setPriority(TaskPriority.LOW);
         task2.setTaskList(taskList);
+        task2.setCreated(now);
+        task2.setUpdated(now);
         task2 = entityManager.persistAndFlush(task2);
 
         entityManager.clear();
@@ -81,9 +89,12 @@ class TaskRepositoryTest {
         @DisplayName("Should return empty list when task list has no tasks")
         void shouldReturnEmptyListWhenNoTasks() {
             // Arrange
+            LocalDateTime now = LocalDateTime.now();
             TaskList emptyList = new TaskList();
             emptyList.setTitle("Empty List");
             emptyList.setDescription("No tasks");
+            emptyList.setCreated(now);
+            emptyList.setUpdated(now);
             emptyList = entityManager.persistAndFlush(emptyList);
 
             // Act
@@ -110,9 +121,12 @@ class TaskRepositoryTest {
         @DisplayName("Should only return tasks for specified task list")
         void shouldOnlyReturnTasksForSpecifiedTaskList() {
             // Arrange
+            LocalDateTime now = LocalDateTime.now();
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setCreated(now);
+            anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
 
             Task anotherTask = new Task();
@@ -121,6 +135,8 @@ class TaskRepositoryTest {
             anotherTask.setStatus(TaskStatus.OPEN);
             anotherTask.setPriority(TaskPriority.MEDIUM);
             anotherTask.setTaskList(anotherList);
+            anotherTask.setCreated(now);
+            anotherTask.setUpdated(now);
             entityManager.persistAndFlush(anotherTask);
 
             // Act
@@ -156,9 +172,12 @@ class TaskRepositoryTest {
         @DisplayName("Should return empty when task exists but belongs to different list")
         void shouldReturnEmptyWhenTaskBelongsToDifferentList() {
             // Arrange
+            LocalDateTime now = LocalDateTime.now();
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setCreated(now);
+            anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
 
             // Act
@@ -248,14 +267,13 @@ class TaskRepositoryTest {
         @DisplayName("Should not delete when task belongs to different list")
         void shouldNotDeleteWhenTaskBelongsToDifferentList() {
             // Arrange
+            LocalDateTime now = LocalDateTime.now();
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setCreated(now);
+            anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
-
-            UUID originalCount = (UUID) entityManager.getEntityManager()
-                    .createQuery("SELECT COUNT(t) FROM Task t")
-                    .getSingleResult();
 
             // Act
             taskRepository.deleteByTaskListIdAndId(anotherList.getId(), task1.getId());
