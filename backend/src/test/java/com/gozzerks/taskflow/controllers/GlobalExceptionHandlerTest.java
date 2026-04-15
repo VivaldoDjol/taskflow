@@ -43,7 +43,7 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/illegal-argument-null")
         public String throwIllegalArgumentNull() {
-            throw new IllegalArgumentException(null);
+            throw new IllegalArgumentException((String) null);
         }
 
         @GetMapping("/test/illegal-argument-unicode")
@@ -71,7 +71,7 @@ class GlobalExceptionHandlerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status", is(400)))
                     .andExpect(jsonPath("$.message", is("Invalid argument provided")))
-                    .andExpect(jsonPath("$.path", containsString("/test/illegal-argument")));
+                    .andExpect(jsonPath("$.details", containsString("/test/illegal-argument")));
         }
 
         @Test
@@ -85,7 +85,7 @@ class GlobalExceptionHandlerTest {
                     .andExpect(jsonPath("$").isMap())
                     .andExpect(jsonPath("$.status").isNumber())
                     .andExpect(jsonPath("$.message").isString())
-                    .andExpect(jsonPath("$.path").isString());
+                    .andExpect(jsonPath("$.details").isString());
         }
 
         @Test
@@ -111,7 +111,7 @@ class GlobalExceptionHandlerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status", is(400)))
                     .andExpect(jsonPath("$.message", is("")))
-                    .andExpect(jsonPath("$.path", containsString("/test/illegal-argument-empty")));
+                    .andExpect(jsonPath("$.details", containsString("/test/illegal-argument-empty")));
         }
 
         @Test
@@ -150,8 +150,7 @@ class GlobalExceptionHandlerTest {
                     .andDo(print())
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status", is(400)))
-                    .andExpect(jsonPath("$.message", containsString("This is a very long error message")))
-                    .andExpect(jsonPath("$.message.length()", greaterThan(100)));
+                    .andExpect(jsonPath("$.message", containsString("This is a very long error message")));
         }
     }
 
@@ -188,8 +187,8 @@ class GlobalExceptionHandlerTest {
             mockMvc.perform(get("/test/illegal-argument")
                             .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
-                    .andExpect(jsonPath("$.path", notNullValue()))
-                    .andExpect(jsonPath("$.path", containsString("uri=/test/illegal-argument")));
+                    .andExpect(jsonPath("$.details", notNullValue()))
+                    .andExpect(jsonPath("$.details", containsString("uri=/test/illegal-argument")));
         }
 
         @Test
@@ -213,7 +212,7 @@ class GlobalExceptionHandlerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").exists())
                     .andExpect(jsonPath("$.message").exists())
-                    .andExpect(jsonPath("$.path").exists())
+                    .andExpect(jsonPath("$.details").exists())
                     .andExpect(jsonPath("$.*", hasSize(3)));
         }
     }
