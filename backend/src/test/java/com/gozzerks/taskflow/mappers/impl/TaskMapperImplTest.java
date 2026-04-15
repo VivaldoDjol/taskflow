@@ -91,7 +91,7 @@ class TaskMapperImplTest {
             task.setDescription("Description");
             task.setDueDate(null);
             task.setPriority(TaskPriority.LOW);
-            task.setStatus(TaskStatus.IN_PROGRESS);
+            task.setStatus(TaskStatus.OPEN);
 
             // Act
             TaskDTO taskDTO = taskMapper.toDTO(task);
@@ -148,14 +148,6 @@ class TaskMapperImplTest {
             openTask.setPriority(TaskPriority.MEDIUM);
             assertThat(taskMapper.toDTO(openTask).status()).isEqualTo(TaskStatus.OPEN);
 
-            // Act & Assert for IN_PROGRESS
-            Task inProgressTask = new Task();
-            inProgressTask.setId(UUID.randomUUID());
-            inProgressTask.setTitle("In Progress Task");
-            inProgressTask.setStatus(TaskStatus.IN_PROGRESS);
-            inProgressTask.setPriority(TaskPriority.MEDIUM);
-            assertThat(taskMapper.toDTO(inProgressTask).status()).isEqualTo(TaskStatus.IN_PROGRESS);
-
             // Act & Assert for CLOSED
             Task closedTask = new Task();
             closedTask.setId(UUID.randomUUID());
@@ -206,7 +198,7 @@ class TaskMapperImplTest {
             task.setDescription("Full Description");
             task.setDueDate(dueDate);
             task.setPriority(TaskPriority.HIGH);
-            task.setStatus(TaskStatus.IN_PROGRESS);
+            task.setStatus(TaskStatus.CLOSED);
 
             // Act
             TaskDTO taskDTO = taskMapper.toDTO(task);
@@ -259,7 +251,7 @@ class TaskMapperImplTest {
                     "DTO Description",
                     dueDate,
                     TaskPriority.HIGH,
-                    TaskStatus.IN_PROGRESS
+                    TaskStatus.CLOSED
             );
 
             // Act
@@ -272,7 +264,7 @@ class TaskMapperImplTest {
             assertThat(task.getDescription()).isEqualTo("DTO Description");
             assertThat(task.getDueDate()).isEqualTo(dueDate);
             assertThat(task.getPriority()).isEqualTo(TaskPriority.HIGH);
-            assertThat(task.getStatus()).isEqualTo(TaskStatus.IN_PROGRESS);
+            assertThat(task.getStatus()).isEqualTo(TaskStatus.CLOSED);
             assertThat(task.getTaskList()).isNull();
         }
 
@@ -350,7 +342,7 @@ class TaskMapperImplTest {
                     "Description",
                     null,
                     TaskPriority.MEDIUM,
-                    TaskStatus.IN_PROGRESS
+                    TaskStatus.CLOSED
             );
 
             // Act
@@ -358,7 +350,7 @@ class TaskMapperImplTest {
 
             // Assert
             assertThat(task).isNotNull();
-            assertThat(task.getStatus()).isEqualTo(TaskStatus.IN_PROGRESS);
+            assertThat(task.getStatus()).isEqualTo(TaskStatus.CLOSED);
         }
 
         @Test
@@ -419,7 +411,7 @@ class TaskMapperImplTest {
                     "Important task that's done",
                     LocalDateTime.now().minusDays(1),
                     TaskPriority.HIGH,
-                    TaskStatus.CLOSED
+                    TaskStatus.OPEN
             );
 
             // Act
@@ -428,7 +420,7 @@ class TaskMapperImplTest {
             // Assert
             assertThat(task).isNotNull();
             assertThat(task.getPriority()).isEqualTo(TaskPriority.HIGH);
-            assertThat(task.getStatus()).isEqualTo(TaskStatus.CLOSED);
+            assertThat(task.getStatus()).isEqualTo(TaskStatus.OPEN);
         }
 
         @Test
@@ -464,7 +456,7 @@ class TaskMapperImplTest {
                     "All fields should be preserved",
                     dueDate,
                     TaskPriority.LOW,
-                    TaskStatus.IN_PROGRESS
+                    TaskStatus.CLOSED
             );
 
             // Act
