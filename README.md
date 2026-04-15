@@ -95,11 +95,6 @@ backend/src/test/java/com/gozzerks/taskflow/
 │   ├── TaskControllerTest.java
 │   ├── TaskListControllerTest.java
 │   └── GlobalExceptionHandlerTest.java
-├── domain/
-│   └── dto/                        # DTO validation tests
-│       ├── TaskDtoTest.java
-│       ├── TaskListDtoTest.java
-│       └── CreateTaskDtoTest.java
 ├── mappers/impl/                   # Mapper conversion tests
 │   ├── TaskMapperImplTest.java
 │   └── TaskListMapperImplTest.java
@@ -157,15 +152,14 @@ frontend/src/
 **Progress Calculation Logic**
 ```java
 // Implemented in TaskListMapperImpl
-private Long calculateProgress(TaskList taskList) {
-    List<Task> tasks = taskList.getTasks();
-    if (tasks == null || tasks.isEmpty()) {
-        return 0L;
+private Double calculateTaskListProgress(List<Task> tasks) {
+    if (null == tasks) {
+        return null;
     }
-    long completedTasks = tasks.stream()
-        .filter(task -> task.getStatus() == TaskStatus.COMPLETED)
+    long closedTaskCount = tasks.stream()
+        .filter(task -> TaskStatus.CLOSED == task.getStatus())
         .count();
-    return (completedTasks * 100) / tasks.size();
+    return (double) closedTaskCount / tasks.size();
 }
 ```
 
@@ -177,17 +171,17 @@ private Long calculateProgress(TaskList taskList) {
 @Table(name = "task_list")
 public class TaskList {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     
-    private String name;
+    private String title;
     private String description;
     
-    @OneToMany(mappedBy = "taskList", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Task> tasks = new ArrayList<>();
+    @OneToMany(mappedBy = "taskList", cascade = {CascadeType.REMOVE, CascadeType.PERSIST})
+    private List<Task> tasks;
     
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private LocalDateTime created;
+    private LocalDateTime updated;
 }
 ```
 
@@ -197,24 +191,22 @@ public class TaskList {
 @Table(name = "task")
 public class Task {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     
     private String title;
     private String description;
+    private LocalDateTime dueDate;
     
-    @Enumerated(EnumType.STRING)
+    private TaskStatus status;
     private TaskPriority priority;
     
-    @Enumerated(EnumType.STRING)
-    private TaskStatus status;
-    
-    @ManyToOne
-    @JoinColumn(name = "task_list_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_list_id")
     private TaskList taskList;
     
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private LocalDateTime created;
+    private LocalDateTime updated;
 }
 ```
 
@@ -253,7 +245,7 @@ Content-Type: application/json
 Request Body:
 ```json
 {
-  "tittle": "Sprint 1 Tasks",
+  "title": "Sprint 1 Tasks",
   "description": "Tasks for the first sprint"
 }
 ```
@@ -358,105 +350,78 @@ curl -X POST http://localhost:8080/api/task-lists \
 
 REST API testing using **MockMvc**, **Mockito**, and **AAA pattern** (Arrange-Act-Assert):
 
-**TaskListControllerTest.java** (15+ tests):
+**TaskListControllerTest.java** (10 tests):
 - List operations (all lists, empty list scenarios)
-- Get single task list (success and 404 cases)
-- Create task list with validation (title required, blank detection, max length)
-- Update task list (success, validation errors, 404 handling)
-- Delete task list (success, 404 handling, cascade delete verification)
-- Error handling (malformed JSON, invalid UUID format)
+- Get single task list (success, not found)
+- Create task list (valid data, service validation errors)
+- Update task list (success, not found)
+- Delete task list
+- Error handling (malformed JSON)
 
-**TaskControllerTest.java** (10+ tests):
+**TaskControllerTest.java** (8 tests):
 - List tasks within task list (populated and empty)
-- Get single task (success and 404 cases)
-- Create task with nested routing validation
+- Get single task (success, not found)
+- Create task (valid data, service validation errors)
 - Update task status and priority
 - Delete task operations
-- Task list relationship validation
 
 ### Repository Tests
 
 Data layer testing using **@DataJpaTest** with **H2 in-memory database**:
 
-**TaskRepositoryTest.java** (15+ tests):
+**TaskRepositoryTest.java** (15 tests):
 - Custom query methods (`findByTaskListId`, `findByTaskListIdAndId`)
-- Cascade delete operations
+- Delete operations (`deleteByTaskListIdAndId`)
 - Entity relationship integrity
 - Empty result handling
 - Task-TaskList bidirectional relationship
-- Transactional behavior verification
+- Cascade delete verification
 
 ### Service Tests
 
 Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
 
-**TaskListServiceImplTest.java** (20+ tests):
+**TaskListServiceImplTest.java** (15 tests):
 - Find all operations (multiple lists, empty results)
-- Get task list (existing ID, non-existent ID, null handling)
-- Create task list (successful creation, timestamp setting, validation)
-- Update task list (successful update, timestamp updates, non-existent ID)
-- Delete task list (successful deletion, non-existent ID, cascade verification)
+- Get task list (existing ID, non-existent ID)
+- Create task list (successful creation, ID conflict, title validation)
+- Update task list (successful update, timestamp updates, not found, ID mismatch)
+- Delete task list
 
-**TaskServiceImplTest.java** (20+ tests):
-- Task creation (with valid list, relationship setup, validation)
-- Task retrieval (by list ID, by ID, empty results)
-- Task updates (field updates, relationship preservation, validation)
-- Task deletion (successful, non-existent, exception handling)
+**TaskServiceImplTest.java** (21 tests):
+- Task creation (valid task list, default priority, forced OPEN status, validation)
+- Task retrieval (by list and task ID, empty results)
+- Task updates (field updates, not found, ID validation, priority/status required)
+- Task deletion
 
 ### Mapper Tests
 
 Entity-DTO conversion testing using **JUnit 5** and **AssertJ**:
 
-**TaskMapperImplTest.java** (30+ tests):
-- toDTO: Entity to DTO mapping (all fields, null handling, relationships)
+**TaskMapperImplTest.java** (19 tests):
+- toDTO: Entity to DTO mapping (all fields, null handling, enums)
 - fromDTO: DTO to Entity mapping (field validation, null safety)
-- Null entity/DTO handling
+- All priority and status combinations
 - Field mapping accuracy
 
-**TaskListMapperImplTest.java** (20+ tests):
+**TaskListMapperImplTest.java** (10 tests):
 - toDTO: Entity to DTO with progress calculation
 - fromDTO: DTO to Entity conversion
-- Progress calculation accuracy
+- Progress calculation accuracy (all open, all closed, mixed)
 - Empty/null task list handling
-
-### DTO Validation Tests
-
-Bean validation testing using **Jakarta Validator** and **AssertJ**:
-
-**TaskDtoTest.java** (20+ tests):
-- Title validation (null, blank, max length, special characters)
-- Description validation (optional, max length)
-- Priority/Status enum validation
-- Due date validation (null allowed, past/future dates)
-- TaskList ID validation
-- Multiple validation error handling
-
-**TaskListDtoTest.java** (10+ tests):
-- Title validation (required, max length, whitespace)
-- Description validation (optional, max length)
-- Progress validation (range, negative values)
-- Task count validation
-- Complete DTO validation
-
-**CreateTaskDtoTest.java** (20+ tests):
-- Required field validation (title, priority, status)
-- Optional field validation (description, dueDate)
-- TaskList ID requirement
-- Field length constraints
-- Special character handling
 
 ### Exception Handler Tests
 
 Global error handling testing using **MockMvc** and **@WebMvcTest**:
 
-**GlobalExceptionHandlerTest.java** (15+ tests):
+**GlobalExceptionHandlerTest.java** (16 tests):
 - IllegalArgumentException handling (400 responses)
 - Error response structure validation
 - Custom/empty/null exception messages
 - Special characters and emojis in messages
 - Long exception message handling
 - JSON content type verification
-- Request path inclusion in errors
+- Request details inclusion in errors
 - Security (no stack trace exposure)
 
 ### Test Coverage
