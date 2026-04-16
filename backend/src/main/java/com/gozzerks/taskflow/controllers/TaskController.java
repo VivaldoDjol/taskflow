@@ -4,6 +4,7 @@ import com.gozzerks.taskflow.domain.dto.TaskDTO;
 import com.gozzerks.taskflow.domain.entities.Task;
 import com.gozzerks.taskflow.mappers.TaskMapper;
 import com.gozzerks.taskflow.services.TaskService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,7 +33,7 @@ public class TaskController {
 
     @PostMapping
     public TaskDTO createTask(@PathVariable("task_list_id") UUID taskListId,
-                              @RequestBody TaskDTO taskDTO
+                              @Valid @RequestBody TaskDTO taskDTO
     ) {
         Task createdTask = taskService.createTask(
                 taskListId,
@@ -53,7 +54,7 @@ public class TaskController {
     public TaskDTO updateTask(
             @PathVariable("task_list_id") UUID taskListId,
             @PathVariable("task_id") UUID taskId,
-            @RequestBody TaskDTO taskDTO
+            @Valid @RequestBody TaskDTO taskDTO
     ) {
         Task updatedTask = taskService.updateTask(
                 taskListId,

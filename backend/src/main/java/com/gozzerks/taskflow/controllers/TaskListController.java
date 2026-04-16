@@ -4,6 +4,7 @@ import com.gozzerks.taskflow.domain.dto.TaskListDTO;
 import com.gozzerks.taskflow.domain.entities.TaskList;
 import com.gozzerks.taskflow.mappers.TaskListMapper;
 import com.gozzerks.taskflow.services.TaskListService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class TaskListController {
     }
 
     @PostMapping
-    public TaskListDTO createTaskList(@RequestBody TaskListDTO taskListDTO) {
+    public TaskListDTO createTaskList(@Valid @RequestBody TaskListDTO taskListDTO) {
 
         TaskList createdTaskList = taskListService.createTaskList(
                 taskListMapper.fromDTO(taskListDTO)
@@ -48,7 +49,7 @@ public class TaskListController {
     @PutMapping(path = "/{task_list_id}")
     public TaskListDTO updateTaskList(
             @PathVariable("task_list_id") UUID taskListId,
-            @RequestBody TaskListDTO taskListDTO
+            @Valid @RequestBody TaskListDTO taskListDTO
     ) {
         TaskList updatedTaskList = taskListService.updateTaskList(
                 taskListId,
