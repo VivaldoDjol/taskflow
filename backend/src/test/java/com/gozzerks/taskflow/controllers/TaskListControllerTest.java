@@ -203,7 +203,7 @@ class TaskListControllerTest {
         // Arrange
         TaskListDTO inputDTO = new TaskListDTO(
                 null,
-                null,
+                "Valid title",
                 "Description only",
                 null,
                 null,

@@ -223,7 +223,7 @@ class TaskControllerTest {
         // Arrange
         TaskDTO inputDTO = new TaskDTO(
                 null,
-                null,
+                "Valid title",
                 "Description",
                 null,
                 TaskPriority.MEDIUM,

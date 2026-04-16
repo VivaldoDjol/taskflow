@@ -3,9 +3,12 @@ package com.gozzerks.taskflow.controllers;
 import com.gozzerks.taskflow.domain.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+
+import java.util.List;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -15,6 +18,23 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse = new ErrorResponse(HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage(),
                 request.getDescription(false)
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, WebRequest request) {
+        List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(err -> new ErrorResponse.FieldError(err.getField(), err.getDefaultMessage()))
+                .toList();
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                request.getDescription(false),
+                fieldErrors
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
