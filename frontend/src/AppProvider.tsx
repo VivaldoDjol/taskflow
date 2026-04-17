@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from "react";
 import axios from "axios";
 import TaskList from "./domain/TaskList";
 import Task from "./domain/Task";
+import { TokenStorage } from "./auth/TokenStorage";
 
 interface AppState {
   taskLists: TaskList[];
@@ -263,7 +264,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    api.fetchTaskLists();
+    const requestInterceptor = axios.interceptors.request.use((config) => {
+      const token = TokenStorage.get();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          TokenStorage.clear();
+          if (window.location.pathname !== "/login") {
+            window.location.assign("/login");
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (TokenStorage.get()) {
+      api.fetchTaskLists();
+    }
   }, []);
 
   return (

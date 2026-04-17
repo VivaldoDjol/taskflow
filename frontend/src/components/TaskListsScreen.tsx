@@ -1,8 +1,9 @@
 import { Button, Card, CardBody, Progress } from "@nextui-org/react";
-import { List, Plus } from "lucide-react";
+import { List, LogOut, Plus } from "lucide-react";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppProvider";
+import { TokenStorage } from "../auth/TokenStorage";
 
 const TaskListScreen: React.FC = () => {
   const { state, api } = useAppContext();
@@ -26,9 +27,24 @@ const TaskListScreen: React.FC = () => {
     console.log(`Navigating to task list ${taskListId}`);
   };
 
+  const handleLogout = () => {
+    TokenStorage.clear();
+    navigate("/login");
+  };
+
   return (
     <div className="p-4 max-w-sm w-full">
-      <h1 className="text-2xl font-bold mb-4 pr-2">My Task Lists</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold pr-2">My Task Lists</h1>
+        <Button
+          isIconOnly
+          variant="light"
+          onPress={handleLogout}
+          aria-label="Log out"
+        >
+          <LogOut size={20} />
+        </Button>
+      </div>
       <Button
         onPress={handleCreateTaskList}
         color="primary"
