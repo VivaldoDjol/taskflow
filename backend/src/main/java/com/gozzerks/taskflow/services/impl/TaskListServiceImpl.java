@@ -1,9 +1,12 @@
 package com.gozzerks.taskflow.services.impl;
 
 import com.gozzerks.taskflow.domain.entities.TaskList;
+import com.gozzerks.taskflow.domain.entities.User;
+import com.gozzerks.taskflow.exceptions.NotFoundException;
 import com.gozzerks.taskflow.repositories.TaskListRepository;
 import com.gozzerks.taskflow.services.TaskListService;
 import jakarta.transaction.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -22,7 +25,7 @@ public class TaskListServiceImpl implements TaskListService {
 
     @Override
     public List<TaskList> listTaskLists() {
-        return taskListRepository.findAll();
+        return taskListRepository.findAllByOwner(currentUser());
     }
 
     public TaskList createTaskList(TaskList taskList) {
@@ -38,6 +41,7 @@ public class TaskListServiceImpl implements TaskListService {
                 null,
                 taskList.getTitle(),
                 taskList.getDescription(),
+                currentUser(),
                 null,
                 now,
                 now
@@ -46,8 +50,9 @@ public class TaskListServiceImpl implements TaskListService {
 
     @Override
     public Optional<TaskList> getTaskList(UUID id) {
-        return taskListRepository.findById(id);
+        return taskListRepository.findByIdAndOwner(id, currentUser());
     }
+
     @Transactional
     @Override
     public TaskList updateTaskList(UUID taskListId, TaskList taskList) {
@@ -55,11 +60,11 @@ public class TaskListServiceImpl implements TaskListService {
             throw new IllegalArgumentException("Task list must have an ID!");
         }
 
-        if(!Objects.equals(taskList.getId(), taskListId)) {
+        if (!Objects.equals(taskList.getId(), taskListId)) {
             throw new IllegalArgumentException("Attempting to change task list ID, this is not permitted!");
         }
-        TaskList existingTaskList = taskListRepository.findById(taskListId).orElseThrow(() ->
-                new IllegalArgumentException("Task list not found!"));
+        TaskList existingTaskList = taskListRepository.findByIdAndOwner(taskListId, currentUser())
+                .orElseThrow(() -> new NotFoundException("Task list not found"));
 
         existingTaskList.setTitle(taskList.getTitle());
         existingTaskList.setDescription(taskList.getDescription());
@@ -69,6 +74,13 @@ public class TaskListServiceImpl implements TaskListService {
 
     @Override
     public void deleteTaskList(UUID taskListId) {
-        taskListRepository.deleteById(taskListId);
+        TaskList existingTaskList = taskListRepository.findByIdAndOwner(taskListId, currentUser())
+                .orElseThrow(() -> new NotFoundException("Task list not found"));
+        taskListRepository.delete(existingTaskList);
+    }
+
+    private User currentUser() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return (User) principal;
     }
 }

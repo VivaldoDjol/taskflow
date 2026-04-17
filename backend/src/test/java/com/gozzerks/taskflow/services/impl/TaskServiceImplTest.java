@@ -4,8 +4,11 @@ import com.gozzerks.taskflow.domain.entities.Task;
 import com.gozzerks.taskflow.domain.entities.TaskList;
 import com.gozzerks.taskflow.domain.entities.TaskPriority;
 import com.gozzerks.taskflow.domain.entities.TaskStatus;
+import com.gozzerks.taskflow.domain.entities.User;
+import com.gozzerks.taskflow.exceptions.NotFoundException;
 import com.gozzerks.taskflow.repositories.TaskListRepository;
 import com.gozzerks.taskflow.repositories.TaskRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +17,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,7 +29,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,11 +46,21 @@ class TaskServiceImplTest {
 
     private Task task;
     private TaskList taskList;
+    private User currentUser;
     private UUID taskId;
     private UUID taskListId;
 
     @BeforeEach
     void setUp() {
+        currentUser = new User(UUID.randomUUID(), "alice", "hash", LocalDateTime.now());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        currentUser,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                )
+        );
+
         taskId = UUID.randomUUID();
         taskListId = UUID.randomUUID();
 
@@ -53,6 +68,7 @@ class TaskServiceImplTest {
         taskList.setId(taskListId);
         taskList.setTitle("Test Task List");
         taskList.setDescription("Test Description");
+        taskList.setOwner(currentUser);
         taskList.setCreated(LocalDateTime.now());
         taskList.setUpdated(LocalDateTime.now());
 
@@ -67,12 +83,17 @@ class TaskServiceImplTest {
         task.setUpdated(LocalDateTime.now());
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Nested
     @DisplayName("List Tasks Tests")
     class ListTasksTests {
 
         @Test
-        @DisplayName("Should return all tasks for a task list")
+        @DisplayName("Should return all tasks for a task list owned by the current user")
         void shouldReturnAllTasksForTaskList() {
             // Arrange
             Task task2 = new Task();
@@ -81,6 +102,8 @@ class TaskServiceImplTest {
             task2.setTaskList(taskList);
 
             List<Task> tasks = List.of(task, task2);
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListId(taskListId)).thenReturn(tasks);
 
             // Act
@@ -96,6 +119,8 @@ class TaskServiceImplTest {
         @DisplayName("Should return empty list when no tasks exist")
         void shouldReturnEmptyListWhenNoTasksExist() {
             // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListId(taskListId)).thenReturn(List.of());
 
             // Act
@@ -104,6 +129,20 @@ class TaskServiceImplTest {
             // Assert
             assertThat(result).isEmpty();
             verify(taskRepository).findByTaskListId(taskListId);
+        }
+
+        @Test
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenListMissing() {
+            // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.listTasks(taskListId))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskRepository, never()).findByTaskListId(any());
         }
     }
 
@@ -115,6 +154,8 @@ class TaskServiceImplTest {
         @DisplayName("Should return task when both IDs match")
         void shouldReturnTaskWhenBothIdsMatch() {
             // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
 
             // Act
@@ -130,6 +171,8 @@ class TaskServiceImplTest {
         @DisplayName("Should return empty when task not found")
         void shouldReturnEmptyWhenTaskNotFound() {
             // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.empty());
 
             // Act
@@ -138,6 +181,20 @@ class TaskServiceImplTest {
             // Assert
             assertThat(result).isEmpty();
             verify(taskRepository).findByTaskListIdAndId(taskListId, taskId);
+        }
+
+        @Test
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenListMissing() {
+            // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.getTask(taskListId, taskId))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskRepository, never()).findByTaskListIdAndId(any(), any());
         }
     }
 
@@ -154,7 +211,8 @@ class TaskServiceImplTest {
             newTask.setDescription("New Description");
             newTask.setPriority(TaskPriority.MEDIUM);
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
                 Task saved = invocation.getArgument(0);
                 saved.setId(UUID.randomUUID());
@@ -169,7 +227,7 @@ class TaskServiceImplTest {
             assertThat(result.getTitle()).isEqualTo("New Task");
             assertThat(result.getStatus()).isEqualTo(TaskStatus.OPEN);
             assertThat(result.getTaskList()).isEqualTo(taskList);
-            verify(taskListRepository).findById(taskListId);
+            verify(taskListRepository).findByIdAndOwner(taskListId, currentUser);
             verify(taskRepository).save(any(Task.class));
         }
 
@@ -180,7 +238,8 @@ class TaskServiceImplTest {
             Task newTask = new Task();
             newTask.setTitle("Task Without Priority");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
@@ -200,7 +259,8 @@ class TaskServiceImplTest {
             newTask.setTitle("Task With Status");
             newTask.setStatus(TaskStatus.CLOSED);
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
@@ -253,19 +313,20 @@ class TaskServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should throw exception when task list not found")
-        void shouldThrowExceptionWhenTaskListNotFound() {
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenTaskListMissing() {
             // Arrange
             Task newTask = new Task();
             newTask.setTitle("New Task");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
 
             // Act & Assert
             assertThatThrownBy(() -> taskService.createTask(taskListId, newTask))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Invalid Task List ID");
-            verify(taskListRepository).findById(taskListId);
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskListRepository).findByIdAndOwner(taskListId, currentUser);
             verify(taskRepository, never()).save(any());
         }
 
@@ -276,7 +337,8 @@ class TaskServiceImplTest {
             Task newTask = new Task();
             newTask.setTitle("New Task");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
@@ -304,6 +366,8 @@ class TaskServiceImplTest {
             updates.setPriority(TaskPriority.LOW);
             updates.setStatus(TaskStatus.CLOSED);
 
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -321,7 +385,7 @@ class TaskServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should throw exception when task not found")
+        @DisplayName("Should throw NotFoundException when task not found")
         void shouldThrowExceptionWhenTaskNotFound() {
             // Arrange
             Task updates = new Task();
@@ -330,13 +394,35 @@ class TaskServiceImplTest {
             updates.setPriority(TaskPriority.MEDIUM);
             updates.setStatus(TaskStatus.OPEN);
 
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.empty());
 
             // Act & Assert
             assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(NotFoundException.class)
                     .hasMessageContaining("Task not found");
             verify(taskRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenListMissing() {
+            // Arrange
+            Task updates = new Task();
+            updates.setId(taskId);
+            updates.setTitle("Updated");
+            updates.setPriority(TaskPriority.MEDIUM);
+            updates.setStatus(TaskStatus.OPEN);
+
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.updateTask(taskListId, taskId, updates))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskRepository, never()).findByTaskListIdAndId(any(), any());
         }
 
         @Test
@@ -409,14 +495,14 @@ class TaskServiceImplTest {
         @DisplayName("Should update the updated timestamp")
         void shouldUpdateTimestamp() {
             // Arrange
-            LocalDateTime originalUpdated = task.getUpdated();
-
             Task updates = new Task();
             updates.setId(taskId);
             updates.setTitle("Updated Title");
             updates.setPriority(TaskPriority.LOW);
             updates.setStatus(TaskStatus.CLOSED);
 
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             when(taskRepository.findByTaskListIdAndId(taskListId, taskId)).thenReturn(Optional.of(task));
             when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -438,6 +524,8 @@ class TaskServiceImplTest {
         @DisplayName("Should delete task successfully")
         void shouldDeleteTaskSuccessfully() {
             // Arrange
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
             doNothing().when(taskRepository).deleteByTaskListIdAndId(taskListId, taskId);
 
             // Act
@@ -448,16 +536,17 @@ class TaskServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should call deleteByTaskListIdAndId exactly once")
-        void shouldCallDeleteOnce() {
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenListMissing() {
             // Arrange
-            doNothing().when(taskRepository).deleteByTaskListIdAndId(taskListId, taskId);
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
 
-            // Act
-            taskService.deleteTask(taskListId, taskId);
-
-            // Assert
-            verify(taskRepository, times(1)).deleteByTaskListIdAndId(taskListId, taskId);
+            // Act & Assert
+            assertThatThrownBy(() -> taskService.deleteTask(taskListId, taskId))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskRepository, never()).deleteByTaskListIdAndId(any(), any());
         }
     }
 }

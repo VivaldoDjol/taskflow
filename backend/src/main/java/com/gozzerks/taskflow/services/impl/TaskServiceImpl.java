@@ -4,10 +4,13 @@ import com.gozzerks.taskflow.domain.entities.Task;
 import com.gozzerks.taskflow.domain.entities.TaskList;
 import com.gozzerks.taskflow.domain.entities.TaskPriority;
 import com.gozzerks.taskflow.domain.entities.TaskStatus;
+import com.gozzerks.taskflow.domain.entities.User;
+import com.gozzerks.taskflow.exceptions.NotFoundException;
 import com.gozzerks.taskflow.repositories.TaskListRepository;
 import com.gozzerks.taskflow.repositories.TaskRepository;
 import com.gozzerks.taskflow.services.TaskService;
 import jakarta.transaction.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,8 +31,10 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public List<Task> listTasks(UUID taskListId) {
+        requireOwnedTaskList(taskListId);
         return taskRepository.findByTaskListId(taskListId);
     }
+
     @Transactional
     @Override
     public Task createTask(UUID taskListId, Task task) {
@@ -45,8 +50,7 @@ public class TaskServiceImpl implements TaskService {
 
         TaskStatus taskStatus = TaskStatus.OPEN;
 
-        TaskList taskList = taskListRepository.findById(taskListId)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid Task List ID provided!"));
+        TaskList taskList = requireOwnedTaskList(taskListId);
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -67,26 +71,30 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public Optional<Task> getTask(UUID taskListId, UUID taskId) {
+        requireOwnedTaskList(taskListId);
         return taskRepository.findByTaskListIdAndId(taskListId, taskId);
     }
+
     @Transactional
     @Override
     public Task updateTask(UUID taskListId, UUID taskId, Task task) {
-        if(null == task.getId()) {
+        if (null == task.getId()) {
             throw new IllegalArgumentException("Task must have an ID!");
         }
-        if(!Objects.equals(taskId, task.getId())) {
+        if (!Objects.equals(taskId, task.getId())) {
             throw new IllegalArgumentException("Task ID does not match!");
         }
-        if(null == task.getPriority()) {
+        if (null == task.getPriority()) {
             throw new IllegalArgumentException("Task must have a valid priority!");
         }
-        if(null == task.getStatus()) {
+        if (null == task.getStatus()) {
             throw new IllegalArgumentException("Task must have a valid status!");
         }
 
+        requireOwnedTaskList(taskListId);
+
         Task existingTask = taskRepository.findByTaskListIdAndId(taskListId, taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found!"));
+                .orElseThrow(() -> new NotFoundException("Task not found"));
         existingTask.setTitle(task.getTitle());
         existingTask.setDescription(task.getDescription());
         existingTask.setDueDate(task.getDueDate());
@@ -96,9 +104,21 @@ public class TaskServiceImpl implements TaskService {
 
         return taskRepository.save(existingTask);
     }
+
     @Transactional
     @Override
     public void deleteTask(UUID taskListId, UUID taskId) {
+        requireOwnedTaskList(taskListId);
         taskRepository.deleteByTaskListIdAndId(taskListId, taskId);
+    }
+
+    private TaskList requireOwnedTaskList(UUID taskListId) {
+        return taskListRepository.findByIdAndOwner(taskListId, currentUser())
+                .orElseThrow(() -> new NotFoundException("Task list not found"));
+    }
+
+    private User currentUser() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return (User) principal;
     }
 }

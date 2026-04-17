@@ -4,6 +4,7 @@ import com.gozzerks.taskflow.domain.entities.Task;
 import com.gozzerks.taskflow.domain.entities.TaskList;
 import com.gozzerks.taskflow.domain.entities.TaskPriority;
 import com.gozzerks.taskflow.domain.entities.TaskStatus;
+import com.gozzerks.taskflow.domain.entities.User;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -29,6 +30,7 @@ class TaskRepositoryTest {
     @Autowired
     private TaskListRepository taskListRepository;
 
+    private User owner;
     private TaskList taskList;
     private Task task1;
     private Task task2;
@@ -38,9 +40,16 @@ class TaskRepositoryTest {
         // Arrange
         LocalDateTime now = LocalDateTime.now();
 
+        owner = new User();
+        owner.setUsername("owner");
+        owner.setPasswordHash("hash");
+        owner.setCreated(now);
+        owner = entityManager.persistAndFlush(owner);
+
         taskList = new TaskList();
         taskList.setTitle("Test List");
         taskList.setDescription("Test Description");
+        taskList.setOwner(owner);
         taskList.setCreated(now);
         taskList.setUpdated(now);
         taskList = entityManager.persistAndFlush(taskList);
@@ -93,6 +102,7 @@ class TaskRepositoryTest {
             TaskList emptyList = new TaskList();
             emptyList.setTitle("Empty List");
             emptyList.setDescription("No tasks");
+            emptyList.setOwner(owner);
             emptyList.setCreated(now);
             emptyList.setUpdated(now);
             emptyList = entityManager.persistAndFlush(emptyList);
@@ -125,6 +135,7 @@ class TaskRepositoryTest {
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setOwner(owner);
             anotherList.setCreated(now);
             anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
@@ -176,6 +187,7 @@ class TaskRepositoryTest {
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setOwner(owner);
             anotherList.setCreated(now);
             anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
@@ -271,6 +283,7 @@ class TaskRepositoryTest {
             TaskList anotherList = new TaskList();
             anotherList.setTitle("Another List");
             anotherList.setDescription("Different list");
+            anotherList.setOwner(owner);
             anotherList.setCreated(now);
             anotherList.setUpdated(now);
             anotherList = entityManager.persistAndFlush(anotherList);
@@ -344,6 +357,66 @@ class TaskRepositoryTest {
             // Assert
             assertThat(updatedTask.getTaskList().getId()).isEqualTo(taskList.getId());
             assertThat(updatedTask.getTaskList().getTitle()).isEqualTo("Test List");
+        }
+    }
+
+    @Nested
+    @DisplayName("TaskList ownership tests")
+    class OwnershipTests {
+
+        @Test
+        @DisplayName("findByIdAndOwner returns the list when the owner matches")
+        void shouldReturnListForMatchingOwner() {
+            // Act
+            Optional<TaskList> found = taskListRepository.findByIdAndOwner(taskList.getId(), owner);
+
+            // Assert
+            assertThat(found).isPresent();
+            assertThat(found.get().getTitle()).isEqualTo("Test List");
+        }
+
+        @Test
+        @DisplayName("findByIdAndOwner returns empty when another user asks for the list")
+        void shouldReturnEmptyForCrossOwner() {
+            // Arrange
+            User otherUser = new User();
+            otherUser.setUsername("other");
+            otherUser.setPasswordHash("hash");
+            otherUser.setCreated(LocalDateTime.now());
+            otherUser = entityManager.persistAndFlush(otherUser);
+
+            // Act
+            Optional<TaskList> found = taskListRepository.findByIdAndOwner(taskList.getId(), otherUser);
+
+            // Assert
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("findAllByOwner returns only the caller's lists")
+        void shouldReturnOnlyCallersLists() {
+            // Arrange
+            LocalDateTime now = LocalDateTime.now();
+            User otherUser = new User();
+            otherUser.setUsername("other");
+            otherUser.setPasswordHash("hash");
+            otherUser.setCreated(now);
+            otherUser = entityManager.persistAndFlush(otherUser);
+
+            TaskList otherList = new TaskList();
+            otherList.setTitle("Other's List");
+            otherList.setOwner(otherUser);
+            otherList.setCreated(now);
+            otherList.setUpdated(now);
+            entityManager.persistAndFlush(otherList);
+
+            // Act
+            List<TaskList> ownerLists = taskListRepository.findAllByOwner(owner);
+            List<TaskList> otherLists = taskListRepository.findAllByOwner(otherUser);
+
+            // Assert
+            assertThat(ownerLists).extracting(TaskList::getTitle).containsExactly("Test List");
+            assertThat(otherLists).extracting(TaskList::getTitle).containsExactly("Other's List");
         }
     }
 }

@@ -1,7 +1,10 @@
 package com.gozzerks.taskflow.services.impl;
 
 import com.gozzerks.taskflow.domain.entities.TaskList;
+import com.gozzerks.taskflow.domain.entities.User;
+import com.gozzerks.taskflow.exceptions.NotFoundException;
 import com.gozzerks.taskflow.repositories.TaskListRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,6 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -33,18 +39,33 @@ class TaskListServiceImplTest {
 
     private UUID taskListId;
     private TaskList taskList;
+    private User currentUser;
 
     @BeforeEach
     void setUp() {
+        currentUser = new User(UUID.randomUUID(), "alice", "hash", LocalDateTime.now());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        currentUser,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                )
+        );
+
         taskListId = UUID.randomUUID();
 
-        // Arrange
         taskList = new TaskList();
         taskList.setId(taskListId);
         taskList.setTitle("Test Task List");
         taskList.setDescription("Test Description");
+        taskList.setOwner(currentUser);
         taskList.setCreated(LocalDateTime.now());
         taskList.setUpdated(LocalDateTime.now());
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Nested
@@ -52,16 +73,17 @@ class TaskListServiceImplTest {
     class FindAllTaskListsTests {
 
         @Test
-        @DisplayName("Should return all task lists when they exist")
+        @DisplayName("Should return all task lists for the current user")
         void shouldReturnAllTaskLists() {
             // Arrange
             TaskList taskList2 = new TaskList();
             taskList2.setId(UUID.randomUUID());
             taskList2.setTitle("Second List");
             taskList2.setDescription("Second Description");
+            taskList2.setOwner(currentUser);
 
             List<TaskList> expectedLists = Arrays.asList(taskList, taskList2);
-            when(taskListRepository.findAll()).thenReturn(expectedLists);
+            when(taskListRepository.findAllByOwner(currentUser)).thenReturn(expectedLists);
 
             // Act
             List<TaskList> actualLists = taskListService.listTaskLists();
@@ -71,14 +93,14 @@ class TaskListServiceImplTest {
                     .isNotNull()
                     .hasSize(2)
                     .containsExactlyInAnyOrder(taskList, taskList2);
-            verify(taskListRepository, times(1)).findAll();
+            verify(taskListRepository, times(1)).findAllByOwner(currentUser);
         }
 
         @Test
-        @DisplayName("Should return empty list when no task lists exist")
+        @DisplayName("Should return empty list when the current user has no lists")
         void shouldReturnEmptyListWhenNoTaskListsExist() {
             // Arrange
-            when(taskListRepository.findAll()).thenReturn(List.of());
+            when(taskListRepository.findAllByOwner(currentUser)).thenReturn(List.of());
 
             // Act
             List<TaskList> actualLists = taskListService.listTaskLists();
@@ -87,7 +109,7 @@ class TaskListServiceImplTest {
             assertThat(actualLists)
                     .isNotNull()
                     .isEmpty();
-            verify(taskListRepository, times(1)).findAll();
+            verify(taskListRepository, times(1)).findAllByOwner(currentUser);
         }
     }
 
@@ -96,10 +118,11 @@ class TaskListServiceImplTest {
     class GetTaskListTests {
 
         @Test
-        @DisplayName("Should return task list when ID exists")
+        @DisplayName("Should return task list when ID exists and user owns it")
         void shouldReturnTaskListWhenIdExists() {
             // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(taskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
 
             // Act
             Optional<TaskList> result = taskListService.getTaskList(taskListId);
@@ -108,21 +131,22 @@ class TaskListServiceImplTest {
             assertThat(result)
                     .isPresent()
                     .contains(taskList);
-            verify(taskListRepository, times(1)).findById(taskListId);
+            verify(taskListRepository, times(1)).findByIdAndOwner(taskListId, currentUser);
         }
 
         @Test
-        @DisplayName("Should return empty Optional when ID does not exist")
+        @DisplayName("Should return empty Optional when list is missing or owned by another user")
         void shouldReturnEmptyWhenIdDoesNotExist() {
             // Arrange
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
 
             // Act
             Optional<TaskList> result = taskListService.getTaskList(taskListId);
 
             // Assert
             assertThat(result).isEmpty();
-            verify(taskListRepository, times(1)).findById(taskListId);
+            verify(taskListRepository, times(1)).findByIdAndOwner(taskListId, currentUser);
         }
     }
 
@@ -131,7 +155,7 @@ class TaskListServiceImplTest {
     class CreateTaskListTests {
 
         @Test
-        @DisplayName("Should create task list successfully")
+        @DisplayName("Should create task list successfully and assign current user as owner")
         void shouldCreateTaskListSuccessfully() {
             // Arrange
             TaskList newTaskList = new TaskList();
@@ -142,6 +166,7 @@ class TaskListServiceImplTest {
             savedTaskList.setId(UUID.randomUUID());
             savedTaskList.setTitle("New List");
             savedTaskList.setDescription("New Description");
+            savedTaskList.setOwner(currentUser);
             savedTaskList.setCreated(LocalDateTime.now());
             savedTaskList.setUpdated(LocalDateTime.now());
 
@@ -153,9 +178,9 @@ class TaskListServiceImplTest {
             // Assert
             assertThat(result)
                     .isNotNull()
-                    .extracting(TaskList::getId, TaskList::getTitle, TaskList::getDescription)
-                    .containsExactly(savedTaskList.getId(), "New List", "New Description");
-            verify(taskListRepository, times(1)).save(any(TaskList.class));
+                    .extracting(TaskList::getId, TaskList::getTitle, TaskList::getDescription, TaskList::getOwner)
+                    .containsExactly(savedTaskList.getId(), "New List", "New Description", currentUser);
+            verify(taskListRepository).save(argThat(saved -> currentUser.equals(saved.getOwner())));
         }
 
         @Test
@@ -204,13 +229,14 @@ class TaskListServiceImplTest {
     class UpdateTaskListTests {
 
         @Test
-        @DisplayName("Should update task list when ID exists")
+        @DisplayName("Should update task list when ID exists and user owns it")
         void shouldUpdateTaskListWhenIdExists() {
             // Arrange
             TaskList existingTaskList = new TaskList();
             existingTaskList.setId(taskListId);
             existingTaskList.setTitle("Old Title");
             existingTaskList.setDescription("Old Description");
+            existingTaskList.setOwner(currentUser);
             existingTaskList.setCreated(LocalDateTime.now().minusDays(1));
             existingTaskList.setUpdated(LocalDateTime.now().minusDays(1));
 
@@ -219,7 +245,8 @@ class TaskListServiceImplTest {
             updatedDetails.setTitle("Updated Title");
             updatedDetails.setDescription("Updated Description");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(existingTaskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(existingTaskList));
             when(taskListRepository.save(any(TaskList.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
@@ -230,7 +257,7 @@ class TaskListServiceImplTest {
             assertThat(result.getTitle()).isEqualTo("Updated Title");
             assertThat(result.getDescription()).isEqualTo("Updated Description");
 
-            verify(taskListRepository, times(1)).findById(taskListId);
+            verify(taskListRepository, times(1)).findByIdAndOwner(taskListId, currentUser);
             verify(taskListRepository, times(1)).save(any(TaskList.class));
         }
 
@@ -243,6 +270,7 @@ class TaskListServiceImplTest {
             TaskList existingTaskList = new TaskList();
             existingTaskList.setId(taskListId);
             existingTaskList.setTitle("Old Title");
+            existingTaskList.setOwner(currentUser);
             existingTaskList.setCreated(LocalDateTime.now().minusDays(2));
             existingTaskList.setUpdated(originalUpdated);
 
@@ -250,7 +278,8 @@ class TaskListServiceImplTest {
             updatedDetails.setId(taskListId);
             updatedDetails.setTitle("Updated Title");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.of(existingTaskList));
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(existingTaskList));
             when(taskListRepository.save(any(TaskList.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
             // Act
@@ -263,20 +292,21 @@ class TaskListServiceImplTest {
         }
 
         @Test
-        @DisplayName("Should throw exception when task list not found")
-        void shouldThrowExceptionWhenNotFound() {
+        @DisplayName("Should throw NotFoundException when task list is missing or owned by another user")
+        void shouldThrowNotFoundWhenMissing() {
             // Arrange
             TaskList updatedDetails = new TaskList();
             updatedDetails.setId(taskListId);
             updatedDetails.setTitle("Updated Title");
 
-            when(taskListRepository.findById(taskListId)).thenReturn(Optional.empty());
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
 
             // Act & Assert
             assertThatThrownBy(() -> taskListService.updateTaskList(taskListId, updatedDetails))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(NotFoundException.class)
                     .hasMessageContaining("Task list not found");
-            verify(taskListRepository, times(1)).findById(taskListId);
+            verify(taskListRepository, times(1)).findByIdAndOwner(taskListId, currentUser);
             verify(taskListRepository, never()).save(any());
         }
 
@@ -291,7 +321,7 @@ class TaskListServiceImplTest {
             assertThatThrownBy(() -> taskListService.updateTaskList(taskListId, noIdList))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Task list must have an ID");
-            verify(taskListRepository, never()).findById(any());
+            verify(taskListRepository, never()).findByIdAndOwner(any(), any());
         }
 
         @Test
@@ -316,29 +346,32 @@ class TaskListServiceImplTest {
     class DeleteTaskListTests {
 
         @Test
-        @DisplayName("Should delete task list when ID exists")
+        @DisplayName("Should delete task list when current user owns it")
         void shouldDeleteTaskListWhenIdExists() {
             // Arrange
-            doNothing().when(taskListRepository).deleteById(taskListId);
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.of(taskList));
 
             // Act
             taskListService.deleteTaskList(taskListId);
 
             // Assert
-            verify(taskListRepository, times(1)).deleteById(taskListId);
+            verify(taskListRepository, times(1)).findByIdAndOwner(taskListId, currentUser);
+            verify(taskListRepository, times(1)).delete(taskList);
         }
 
         @Test
-        @DisplayName("Should call deleteById exactly once")
-        void shouldCallDeleteByIdOnce() {
+        @DisplayName("Should throw NotFoundException when deleting a list missing or owned by another user")
+        void shouldThrowNotFoundWhenDeletingMissing() {
             // Arrange
-            doNothing().when(taskListRepository).deleteById(taskListId);
+            when(taskListRepository.findByIdAndOwner(taskListId, currentUser))
+                    .thenReturn(Optional.empty());
 
-            // Act
-            taskListService.deleteTaskList(taskListId);
-
-            // Assert
-            verify(taskListRepository, times(1)).deleteById(taskListId);
+            // Act & Assert
+            assertThatThrownBy(() -> taskListService.deleteTaskList(taskListId))
+                    .isInstanceOf(NotFoundException.class)
+                    .hasMessageContaining("Task list not found");
+            verify(taskListRepository, never()).delete(any());
         }
     }
 }

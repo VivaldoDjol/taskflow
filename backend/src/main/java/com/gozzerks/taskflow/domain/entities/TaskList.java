@@ -22,6 +22,10 @@ public class TaskList {
     @Column(name = "description")
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
+
     @OneToMany(mappedBy = "taskList", cascade = {
             CascadeType.REMOVE, CascadeType.PERSIST
     })
@@ -36,10 +40,11 @@ public class TaskList {
     public TaskList() {
     }
 
-    public TaskList(UUID id, String title, String description, List<Task> tasks, LocalDateTime created, LocalDateTime updated) {
+    public TaskList(UUID id, String title, String description, User owner, List<Task> tasks, LocalDateTime created, LocalDateTime updated) {
         this.id = id;
         this.title = title;
         this.description = description;
+        this.owner = owner;
         this.tasks = tasks;
         this.created = created;
         this.updated = updated;
@@ -67,6 +72,14 @@ public class TaskList {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public User getOwner() {
+        return owner;
+    }
+
+    public void setOwner(User owner) {
+        this.owner = owner;
     }
 
     public List<Task> getTasks() {
