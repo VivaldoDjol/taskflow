@@ -16,3 +16,25 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-taskflow}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow123}
       POSTGRES_DB: ${POSTGRES_DB:-taskflow}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskflow} -d ${POSTGRES_DB:-taskflow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Spring Boot backend. Builds from ./backend using the multi-stage
+  # Dockerfile there. Waits for Postgres to report healthy before start.
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-taskflow}
+      POSTGRES_USER: ${POSTGRES_USER:-taskflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow123}
+      JWT_SECRET: ${JWT_SECRET:-ZmFrZS1kZXYtc2VjcmV0LW5vdC1mb3ItcHJvZHVjdGlvbi1wbGVhc2UtcmVwbGFjZS1tZQ==}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}

@@ -1,7 +1,7 @@
 package com.gozzerks.taskflow.domain.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-docs(api): annotate controllers and DTOs with OpenAPI metadataimport io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;
 
