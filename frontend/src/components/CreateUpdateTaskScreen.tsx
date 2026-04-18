@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Input, Textarea, Spacer, Card, Chip } from "@nextui-org/react";
 import { ArrowLeft } from "lucide-react";
-import { useAppContext } from "../AppProvider";
+import { useAppContext } from "../AppContext";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { TaskPriority } from "../domain/TaskPriority";
@@ -23,46 +23,18 @@ const CreateUpdateTaskScreen: React.FC = () => {
   const [priority, setPriority] = useState(TaskPriority.MEDIUM);
   const [status, setStatus] = useState<TaskStatus | undefined>(undefined);
 
-  // Load initial data
   useEffect(() => {
     const loadInitialData = async () => {
       if (!listId || !taskId) {
         setIsLoading(false);
         return;
       }
-
       setIsLoading(true);
       try {
-        console.log("Loading initial data...");
-        
-        // First ensure we have the task list
-        if (!state.taskLists.find(tl => tl.id === listId)) {
-          await api.getTaskList(listId);
-        }
-
-        // Load the individual task
-        const taskResponse = await api.getTask(listId, taskId);
-        console.log("Task loaded:", taskResponse);
-        
-        // Check state after loading
-        console.log("Current state after load:", state);
-        
-        // Get task from state
-        const task = state.tasks[listId]?.find(t => t.id === taskId);
-        console.log("Found task in state:", task);
-
-        if (task) {
-          console.log("Setting form values with task:", task);
-          setTitle(task.title);
-          setDescription(task.description || "");
-          setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
-          setPriority(task.priority || TaskPriority.MEDIUM);
-          setStatus(task.status);
-        }
-
+        await api.getTaskList(listId);
+        await api.getTask(listId, taskId);
         setIsUpdate(true);
       } catch (error) {
-        console.error("Error loading task:", error);
         if (axios.isAxiosError(error)) {
           setError(error.response?.data?.message || error.message);
         } else {
@@ -72,18 +44,13 @@ const CreateUpdateTaskScreen: React.FC = () => {
         setIsLoading(false);
       }
     };
+    void loadInitialData();
+  }, [listId, taskId, api]);
 
-    loadInitialData();
-  }, [listId, taskId]);
-
-  // Watch for task updates in state
   useEffect(() => {
     if (listId && taskId && state.tasks[listId]) {
-      const task = state.tasks[listId].find(t => t.id === taskId);
-      console.log("State updated, current task:", task);
-      
+      const task = state.tasks[listId].find((t) => t.id === taskId);
       if (task) {
-        console.log("Updating form with task from state update:", task);
         setTitle(task.title);
         setDescription(task.description || "");
         setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
@@ -142,10 +109,10 @@ const CreateUpdateTaskScreen: React.FC = () => {
   return (
     <div className="p-4 max-w-md mx-auto">
       <div className="flex items-center space-x-4 mb-6">
-        <Button 
+        <Button
           variant="ghost"
           aria-label="Go back"
-          onClick={() => navigate(`/task-lists/${listId}`)}
+          onPress={() => navigate(`/task-lists/${listId}`)}
         >
           <ArrowLeft size={20} />
         </Button>
@@ -192,10 +159,10 @@ const CreateUpdateTaskScreen: React.FC = () => {
           ))}
         </div>
         <Spacer y={4} />
-        <Button 
-          type="submit" 
-          color="primary" 
-          onClick={createUpdateTask}
+        <Button
+          type="submit"
+          color="primary"
+          onPress={createUpdateTask}
           fullWidth
         >
           {isUpdate ? "Update Task" : "Create Task"}

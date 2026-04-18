@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Input, Textarea, Spacer, Card } from "@nextui-org/react";
 import { ArrowLeft } from "lucide-react";
-import { useAppContext } from "../AppProvider";
+import { useAppContext } from "../AppContext";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
@@ -18,37 +18,17 @@ const CreateUpdateTaskListScreen: React.FC = () => {
   // Get a handle on the router
   const navigate = useNavigate();
 
-  const findTaskList = (taskListId: string) => {
-    const filteredTaskLists = state.taskLists.filter(
-      (tl) => taskListId == tl.id
-    );
-    if (filteredTaskLists.length === 1) {
-      return filteredTaskLists[0];
-    }
-    return null;
-  };
-
-  const populateTaskList = (taskListId: string) => {
-    const taskList = findTaskList(taskListId);
-    if (null != taskList) {
-      console.log("FOUND TASK LIST");
+  useEffect(() => {
+    if (null == listId) return;
+    const taskList = state.taskLists.find((tl) => tl.id === listId);
+    if (taskList) {
       setTitle(taskList.title);
       setDescription(taskList.description);
       setIsUpdate(true);
+    } else if (state.taskLists.length === 0) {
+      void api.fetchTaskLists();
     }
-  };
-
-  useEffect(() => {
-    if (null != listId) {
-      console.log(`ID is ${listId}`);
-      if (null == state.taskLists) {
-        console.log("Fetching task lists");
-        api.fetchTaskLists().then(() => populateTaskList(listId));
-      } else {
-        populateTaskList(listId);
-      }
-    }
-  }, [listId]);
+  }, [listId, state.taskLists, api]);
 
   const createUpdateTaskList = async () => {
     try {
@@ -89,7 +69,7 @@ const CreateUpdateTaskListScreen: React.FC = () => {
   return (
     <div className="p-4 max-w-md mx-auto">
       <div className="flex items-center space-x-4 mb-6">
-        <Button onClick={() => navigate("/")}>
+        <Button onPress={() => navigate("/")}>
           <ArrowLeft size={20} />
         </Button>
         <h1 className="text-2xl font-bold">
@@ -115,7 +95,7 @@ const CreateUpdateTaskListScreen: React.FC = () => {
           fullWidth
         />
         <Spacer y={1} />
-        <Button type="submit" color="primary" onClick={createUpdateTaskList}>
+        <Button type="submit" color="primary" onPress={createUpdateTaskList}>
           {isUpdate ? "Update Task List" : "Create Task List"}
         </Button>
       </form>

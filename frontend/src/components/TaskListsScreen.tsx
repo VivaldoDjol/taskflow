@@ -2,18 +2,15 @@ import { Button, Card, CardBody, Progress } from "@nextui-org/react";
 import { List, LogOut, Plus } from "lucide-react";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppContext } from "../AppProvider";
+import { useAppContext } from "../AppContext";
 import { TokenStorage } from "../auth/TokenStorage";
 
 const TaskListScreen: React.FC = () => {
   const { state, api } = useAppContext();
 
-  // Fetch task lists when the component mounts
   useEffect(() => {
-    if (null == state.taskLists) {
-      api.fetchTaskLists();
-    }
-  }, [state]);
+    void api.fetchTaskLists();
+  }, [api]);
 
   // Get a handle on the router
   const navigate = useNavigate();

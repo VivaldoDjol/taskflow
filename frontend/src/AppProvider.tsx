@@ -1,13 +1,9 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { useReducer, useEffect, useMemo } from "react";
 import axios from "axios";
 import TaskList from "./domain/TaskList";
 import Task from "./domain/Task";
 import { TokenStorage } from "./auth/TokenStorage";
-
-interface AppState {
-  taskLists: TaskList[];
-  tasks: { [taskListId: string]: Task[] };
-}
+import { AppContext, AppContextType, AppState } from "./AppContext";
 
 type Action =
   | { type: "FETCH_TASKLISTS"; payload: TaskList[] }
@@ -140,128 +136,102 @@ const initialState: AppState = {
   tasks: {},
 };
 
-// Context
-interface AppContextType {
-  state: AppState;
-  api: {
-    fetchTaskLists: () => Promise<void>;
-    getTaskList: (id: string) => Promise<void>;
-    createTaskList: (taskList: Omit<TaskList, "id">) => Promise<void>;
-    updateTaskList: (id: string, taskList: TaskList) => Promise<void>;
-    deleteTaskList: (id: string) => Promise<void>;
-    fetchTasks: (taskListId: string) => Promise<void>;
-    createTask: (
-      taskListId: string,
-      task: Omit<Task, "id" | "taskListId">
-    ) => Promise<void>;
-    getTask: (taskListId: string, taskId: string) => Promise<void>;
-    updateTask: (
-      taskListId: string,
-      taskId: string,
-      task: Task
-    ) => Promise<void>;
-    deleteTask: (taskListId: string, taskId: string) => Promise<void>;
-  };
-}
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
 // Provider component
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const jsonHeaders = {
-    headers: { "Content-Type": "application/json" },
-  };
-
-  // API calls
-  const api: AppContextType["api"] = {
-    fetchTaskLists: async () => {
-      const response = await axios.get<TaskList[]>(
-        "/api/task-lists",
-        jsonHeaders
-      );
-      dispatch({ type: FETCH_TASKLISTS, payload: response.data });
-    },
-    getTaskList: async (id: string) => {
-      const response = await axios.get<TaskList>(
-        `/api/task-lists/${id}`,
-        jsonHeaders
-      );
-      dispatch({ type: GET_TASKLIST, payload: response.data });
-    },
-    createTaskList: async (taskList) => {
-      const response = await axios.post<TaskList>(
-        "/api/task-lists",
-        taskList,
-        jsonHeaders
-      );
-      dispatch({ type: CREATE_TASKLIST, payload: response.data });
-    },
-    getTask: async (taskListId: string, taskId: string) => {
-      const response = await axios.get<Task>(
-        `/api/task-lists/${taskListId}/tasks/${taskId}`,
-        jsonHeaders
-      );
-      dispatch({
-        type: GET_TASK,
-        payload: { taskListId, task: response.data },
-      });
-    },
-    updateTaskList: async (id, taskList) => {
-      const response = await axios.put<TaskList>(
-        `/api/task-lists/${id}`,
-        taskList,
-        jsonHeaders
-      );
-      dispatch({ type: UPDATE_TASKLIST, payload: response.data });
-    },
-    deleteTaskList: async (id) => {
-      await axios.delete(`/api/task-lists/${id}`, jsonHeaders);
-      dispatch({ type: DELETE_TASKLIST, payload: id });
-    },
-    fetchTasks: async (taskListId) => {
-      const response = await axios.get<Task[]>(
-        `/api/task-lists/${taskListId}/tasks`,
-        jsonHeaders
-      );
-      dispatch({
-        type: FETCH_TASKS,
-        payload: { taskListId, tasks: response.data },
-      });
-    },
-    createTask: async (taskListId, task) => {
-      const response = await axios.post<Task>(
-        `/api/task-lists/${taskListId}/tasks`,
-        task,
-        jsonHeaders
-      );
-      dispatch({
-        type: CREATE_TASK,
-        payload: { taskListId, task: response.data },
-      });
-    },
-    updateTask: async (taskListId, taskId, task) => {
-      const response = await axios.put<Task>(
-        `/api/task-lists/${taskListId}/tasks/${taskId}`,
-        task,
-        jsonHeaders
-      );
-      dispatch({
-        type: UPDATE_TASK,
-        payload: { taskListId, taskId, task: response.data },
-      });
-    },
-    deleteTask: async (taskListId, taskId) => {
-      await axios.delete(
-        `/api/task-lists/${taskListId}/tasks/${taskId}`,
-        jsonHeaders
-      );
-      dispatch({ type: DELETE_TASK, payload: { taskListId, taskId } });
-    },
-  };
+  const api = useMemo<AppContextType["api"]>(() => {
+    const jsonHeaders = {
+      headers: { "Content-Type": "application/json" },
+    };
+    return {
+      fetchTaskLists: async () => {
+        const response = await axios.get<TaskList[]>(
+          "/api/task-lists",
+          jsonHeaders
+        );
+        dispatch({ type: FETCH_TASKLISTS, payload: response.data });
+      },
+      getTaskList: async (id: string) => {
+        const response = await axios.get<TaskList>(
+          `/api/task-lists/${id}`,
+          jsonHeaders
+        );
+        dispatch({ type: GET_TASKLIST, payload: response.data });
+      },
+      createTaskList: async (taskList) => {
+        const response = await axios.post<TaskList>(
+          "/api/task-lists",
+          taskList,
+          jsonHeaders
+        );
+        dispatch({ type: CREATE_TASKLIST, payload: response.data });
+      },
+      getTask: async (taskListId: string, taskId: string) => {
+        const response = await axios.get<Task>(
+          `/api/task-lists/${taskListId}/tasks/${taskId}`,
+          jsonHeaders
+        );
+        dispatch({
+          type: GET_TASK,
+          payload: { taskListId, task: response.data },
+        });
+      },
+      updateTaskList: async (id, taskList) => {
+        const response = await axios.put<TaskList>(
+          `/api/task-lists/${id}`,
+          taskList,
+          jsonHeaders
+        );
+        dispatch({ type: UPDATE_TASKLIST, payload: response.data });
+      },
+      deleteTaskList: async (id) => {
+        await axios.delete(`/api/task-lists/${id}`, jsonHeaders);
+        dispatch({ type: DELETE_TASKLIST, payload: id });
+      },
+      fetchTasks: async (taskListId) => {
+        const response = await axios.get<Task[]>(
+          `/api/task-lists/${taskListId}/tasks`,
+          jsonHeaders
+        );
+        dispatch({
+          type: FETCH_TASKS,
+          payload: { taskListId, tasks: response.data },
+        });
+      },
+      createTask: async (taskListId, task) => {
+        const response = await axios.post<Task>(
+          `/api/task-lists/${taskListId}/tasks`,
+          task,
+          jsonHeaders
+        );
+        dispatch({
+          type: CREATE_TASK,
+          payload: { taskListId, task: response.data },
+        });
+      },
+      updateTask: async (taskListId, taskId, task) => {
+        const response = await axios.put<Task>(
+          `/api/task-lists/${taskListId}/tasks/${taskId}`,
+          task,
+          jsonHeaders
+        );
+        dispatch({
+          type: UPDATE_TASK,
+          payload: { taskListId, taskId, task: response.data },
+        });
+      },
+      deleteTask: async (taskListId, taskId) => {
+        await axios.delete(
+          `/api/task-lists/${taskListId}/tasks/${taskId}`,
+          jsonHeaders
+        );
+        dispatch({ type: DELETE_TASK, payload: { taskListId, taskId } });
+      },
+    };
+  }, []);
 
   useEffect(() => {
     const requestInterceptor = axios.interceptors.request.use((config) => {
@@ -293,20 +263,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     if (TokenStorage.get()) {
-      api.fetchTaskLists();
+      void api.fetchTaskLists();
     }
-  }, []);
+  }, [api]);
 
   return (
     <AppContext.Provider value={{ state, api }}>{children}</AppContext.Provider>
   );
-};
-
-// Custom hook to use the context
-export const useAppContext = (): AppContextType => {
-  const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useAppContext must be used within an AppProvider");
-  }
-  return context;
 };
