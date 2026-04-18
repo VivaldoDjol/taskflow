@@ -10,12 +10,9 @@ services:
     # If we accidentally kill the running container, Docker Compose
     # will restart it.
     restart: always
-    # The PostgreSQL Docker container uses environment variables to
-    # read configuration, here we set the password.
-    # CAUTION - DO NOT store plaintext passwords in source control. We
-    #           are doing so here as this is a builder.
+    # Credentials are read from .env (see .env.example). Defaults
+    # below are for local dev only -- override them in prod.
     environment:
-      POSTGRES_USER: taskflow
-      POSTGRES_PASSWORD: taskflow123
-      POSTGRES_DB: taskflow
-
+      POSTGRES_USER: ${POSTGRES_USER:-taskflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow123}
+      POSTGRES_DB: ${POSTGRES_DB:-taskflow}
