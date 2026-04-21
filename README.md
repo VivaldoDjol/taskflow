@@ -4,10 +4,19 @@ A task management application showcasing backend development expertise with Spri
 
 ## Project Context
 
-This project demonstrates my **backend development skills** with Spring Boot, Java, and RESTful API design. The backend was developed by following best practices tutorials and implementing core features independently. The frontend serves as a functional interface to demonstrate the API capabilities, though my primary expertise lies in backend development.
+This project demonstrates my **backend development skills** with Spring Boot, Java, and RESTful API design. On top of the core CRUD layer, I've layered the production-readiness features a real backend portfolio needs:
 
-**Current Focus**: Backend architecture, API design, database modeling, and server-side logic  
-**Learning Goals**: Understanding client-side integration to design more robust and developer-friendly backend APIs
+- Stateless **JWT authentication** with Spring Security 6 (register, login, per-user resource scoping)
+- **OpenAPI 3 / Swagger UI** documentation, annotated end-to-end
+- **Flyway** versioned schema migrations
+- **Bean Validation** on every request DTO, with a uniform `ErrorResponse` shape
+- **Multi-stage Dockerfile** and a full `docker compose` stack (Postgres + backend in one command)
+- **Externalised secrets** via environment variables (DB credentials, JWT signing key)
+- **GitHub Actions CI** — backend tests, frontend lint + build, and Docker image build
+
+The frontend serves as a functional interface to demonstrate the API; my primary expertise and focus is on the backend.
+
+**Current Focus**: Backend architecture, API design, authentication, and production-readiness tooling.
 
 ## Project Overview
 
@@ -22,11 +31,28 @@ TaskFlow is a task management application that enables users to organize their w
 - **Task Operations**: Nested resource management within task lists
 - **Priority & Status System**: Enum-based task organization (LOW, MEDIUM, HIGH priority)
 - **Database Relationships**: Proper JPA entity relationships and cascade operations
-- **Exception Handling**: Global exception handler with meaningful error responses
+- **Exception Handling**: Global exception handler with a uniform `ErrorResponse` shape
 - **Progress Tracking**: Service-layer logic for calculating task completion percentages
+
+### Security & Authentication
+- **Stateless JWT authentication** (JJWT 0.12.x, HS512)
+- **Spring Security 6** with a custom `JwtAuthFilter` in front of `UsernamePasswordAuthenticationFilter`
+- **BCrypt** password hashing
+- **Per-user resource scoping** — task lists and their tasks are only visible to the owning user
+- Custom `AuthenticationEntryPoint` (401) and `AccessDeniedHandler` (403) that return the project's `ErrorResponse` JSON shape
+- JWT signing secret read from the `JWT_SECRET` env var (required to decode to ≥ 64 bytes for HS512)
+
+### Production-Readiness
+- **Flyway** versioned migrations (`V1` baseline schema, `V2` users + task-list ownership)
+- **OpenAPI 3 / Swagger UI** (`/api/swagger-ui.html`) with bearer-auth integrated — click "Authorize" and paste a JWT to try protected endpoints
+- **Bean Validation** (`@NotBlank`, `@Size`, etc.) on every request DTO with field-level error reporting
+- **Externalised secrets** via env vars (DB credentials, JWT secret) with safe dev defaults
+- **Multi-stage Dockerfile** and docker-compose wiring (Postgres + backend, one command)
+- **GitHub Actions CI** running on every push / PR to `master`
 
 ### Frontend Features
 - Basic CRUD interface for task and task list management
+- Login / Register flow with JWT persistence + Axios interceptor
 - Progress visualization with NextUI components
 - Responsive design with Tailwind CSS
 
@@ -35,11 +61,16 @@ TaskFlow is a task management application that enables users to organize their w
 ### Backend (Primary Focus)
 - **Framework**: Spring Boot 3.5.6
 - **Language**: Java 17
-- **Database**: PostgreSQL (production), H2 (testing)
+- **Security**: Spring Security 6, JJWT 0.12.x (stateless JWT), BCrypt
+- **Database**: PostgreSQL 16 (production), H2 (testing)
 - **ORM**: Spring Data JPA / Hibernate
+- **Migrations**: Flyway
+- **API docs**: SpringDoc OpenAPI 2.8.9 (Swagger UI at `/api/swagger-ui.html`)
+- **Validation**: Jakarta Bean Validation
 - **Build Tool**: Maven
-- **Containerization**: Docker & Docker Compose
-- **Testing**: JUnit, Spring Boot Test
+- **Containerization**: Multi-stage Docker build + Docker Compose
+- **CI**: GitHub Actions (backend tests, frontend lint+build, Docker image build)
+- **Testing**: JUnit 5, Mockito, Spring Boot Test, AssertJ (130 tests)
 
 ### Frontend (Supporting Interface)
 - **Framework**: React 18 with TypeScript
@@ -58,36 +89,55 @@ TaskFlow is a task management application that enables users to organize their w
 ```
 # Main Directory
 backend/src/main/java/com/gozzerks/taskflow/
-├── TaskflowApplication.java    # Spring Boot main application
-├── controllers/                # REST API endpoints
+├── TaskflowApplication.java      # Spring Boot main application
+├── auth/                         # Security + JWT stack (my own addition)
+│   ├── AuthController.java       # /api/auth/register, /api/auth/login
+│   ├── AuthService.java
+│   ├── JwtService.java           # sign / parse / validate
+│   ├── JwtAuthFilter.java        # per-request bearer-token filter
+│   ├── SecurityConfig.java       # stateless chain, entry point, denied handler
+│   └── dto/                      # RegisterRequest, LoginRequest, AuthResponse
+├── config/
+│   └── OpenApiConfig.java        # bearerAuth scheme for Swagger UI
+├── controllers/                  # REST API endpoints
 │   ├── TaskController.java
 │   ├── TaskListController.java
 │   └── GlobalExceptionHandler.java
-├── services/                   # Business logic layer
-│   ├── TaskService.java        # Service interface
-│   ├── TaskListService.java    # Service interface
+├── exceptions/
+│   └── NotFoundException.java    # → 404 via GlobalExceptionHandler
+├── services/                     # Business logic layer
+│   ├── TaskService.java          # Service interface
+│   ├── TaskListService.java      # Service interface
 │   └── impl/
-│       ├── TaskServiceImpl.java      # Implementation of task business logic
-│       └── TaskListServiceImpl.java  # Implementation of task list business logic
-├── repositories/               # Data access layer (Spring Data JPA)
+│       ├── TaskServiceImpl.java
+│       └── TaskListServiceImpl.java
+├── repositories/                 # Data access layer (Spring Data JPA)
 │   ├── TaskRepository.java
-│   └── TaskListRepository.java
+│   ├── TaskListRepository.java
+│   └── UserRepository.java
 ├── domain/
-│   ├── entities/              # JPA entities
-│   │   ├── Task.java
+│   ├── entities/                 # JPA entities
+│   │   ├── User.java             # BCrypt-hashed password, owns task lists
 │   │   ├── TaskList.java
-│   │   ├── TaskStatus.java    # Enum: OPEN, CLOSED
-│   │   └── TaskPriority.java  # Enum: LOW, MEDIUM, HIGH
-│   └── dto/                   # Data Transfer Objects
+│   │   ├── Task.java
+│   │   ├── TaskStatus.java       # Enum: OPEN, CLOSED
+│   │   └── TaskPriority.java     # Enum: LOW, MEDIUM, HIGH
+│   └── dto/                      # Data Transfer Objects (+ OpenAPI @Schema)
 │       ├── TaskDTO.java
 │       ├── TaskListDTO.java
 │       └── ErrorResponse.java
-└── mappers/                   # Entity-DTO conversion
-├── TaskMapper.java        # Mapper interface
-├── TaskListMapper.java    # Mapper interface
-└── impl/
-├── TaskMapperImpl.java
-└── TaskListMapperImpl.java
+└── mappers/                      # Entity-DTO conversion
+    ├── TaskMapper.java
+    ├── TaskListMapper.java
+    └── impl/
+        ├── TaskMapperImpl.java
+        └── TaskListMapperImpl.java
+
+backend/src/main/resources/
+├── application.properties        # env-driven config (DB creds, JWT secret)
+└── db/migration/                 # Flyway versioned migrations
+    ├── V1__init_schema.sql
+    └── V2__add_users_and_task_list_ownership.sql
 
 # Test Directory
 backend/src/test/java/com/gozzerks/taskflow/
@@ -212,67 +262,90 @@ public class Task {
 
 **Relationship**: One-to-Many (TaskList → Tasks) with cascade operations
 
-## API Endpoints 
+## API Endpoints
 
-### Task Lists
+All endpoints live under the `/api` context path. Every endpoint except `/api/auth/**` and the Swagger docs requires an `Authorization: Bearer <jwt>` header.
+
+Interactive documentation is available at **`http://localhost:8080/api/swagger-ui.html`** — click **Authorize** and paste a JWT to try protected endpoints from the browser.
+
+### Authentication (public)
 ```http
-GET    /task-lists              # Retrieve all task lists with progress
-GET    /task-lists/{id}         # Get specific task list with tasks
-POST   /task-lists              # Create new task list
-PUT    /task-lists/{id}         # Update task list details
-DELETE /task-lists/{id}         # Delete task list (cascades to tasks)
+POST   /api/auth/register       # Create a new user, returns { token, username }
+POST   /api/auth/login          # Exchange credentials for a JWT
 ```
 
-### Tasks (Nested Resource)
+### Task Lists (authenticated, owner-scoped)
 ```http
-GET    /task-lists/{task_list_id}/tasks          # Get all tasks in a list
-GET    /task-lists/{task_list_id}/tasks/{id}     # Get specific task
-POST   /task-lists/{task_list_id}/tasks          # Create new task
-PUT    /task-lists/{task_list_id}/tasks/{id}     # Update task
-DELETE /task-lists/{task_list_id}/tasks/{id}     # Delete task
+GET    /api/task-lists                  # Retrieve all task lists for the caller
+GET    /api/task-lists/{id}             # Get specific task list with its tasks
+POST   /api/task-lists                  # Create new task list
+PUT    /api/task-lists/{id}             # Update task list details
+DELETE /api/task-lists/{id}             # Delete task list (cascades to tasks)
 ```
 
-### Example Request/Response
-
-**Create Task List:**
-
-Request:
+### Tasks (authenticated, nested resource)
+```http
+GET    /api/task-lists/{task_list_id}/tasks         # Get all tasks in a list
+GET    /api/task-lists/{task_list_id}/tasks/{id}    # Get specific task
+POST   /api/task-lists/{task_list_id}/tasks         # Create new task
+PUT    /api/task-lists/{task_list_id}/tasks/{id}    # Update task
+DELETE /api/task-lists/{task_list_id}/tasks/{id}    # Delete task
 ```
-POST /task-lists
+
+### Example auth flow
+
+**1. Register:**
+
+```http
+POST /api/auth/register
 Content-Type: application/json
-```
 
-Request Body:
-```json
 {
-  "title": "Sprint 1 Tasks",
-  "description": "Tasks for the first sprint"
+  "username": "alice",
+  "password": "correct-horse-battery-staple"
 }
 ```
 
-Response (201 Created):
+Response `200 OK`:
 ```json
 {
-  "id": 1,
-  "title": "Sprint 1 Tasks",
-  "description": "Tasks for the first sprint",
-  "progress": 0,
-  "tasks": [],
-  "createdAt": "2024-01-15T10:30:00",
-  "updatedAt": "2024-01-15T10:30:00"
+  "token": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhbGljZSJ9.signature",
+  "username": "alice"
 }
 ```
 
-**Create Task:**
+**2. Create a task list using the JWT:**
 
-Request:
-```
-POST /task-lists/1/tasks
+```http
+POST /api/task-lists
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
 Content-Type: application/json
+
+{
+  "title": "Sprint 12",
+  "description": "Work items for the sprint ending 2026-05-02."
+}
 ```
 
-Request Body:
+Response `200 OK`:
 ```json
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "title": "Sprint 12",
+  "description": "Work items for the sprint ending 2026-05-02.",
+  "count": 0,
+  "progress": 0.0,
+  "tasks": []
+}
+```
+
+**3. Add a task to that list:**
+
+```http
+POST /api/task-lists/11111111-1111-1111-1111-111111111111/tasks
+Authorization: Bearer eyJhbGciOiJIUzUxMiJ9...
+Content-Type: application/json
+
 {
   "title": "Implement user authentication",
   "description": "Add JWT-based authentication",
@@ -281,70 +354,110 @@ Request Body:
 }
 ```
 
-Response (201 Created):
+### Error shape
+
+All 4xx and 5xx responses use a uniform shape:
+
 ```json
 {
-  "id": 1,
-  "title": "Implement user authentication",
-  "description": "Add JWT-based authentication",
-  "priority": "HIGH",
-  "status": "OPEN",
-  "taskListId": 1,
-  "createdAt": "2024-01-15T10:35:00",
-  "updatedAt": "2024-01-15T10:35:00"
+  "status": 400,
+  "message": "Validation failed",
+  "details": "/api/task-lists",
+  "errors": [
+    { "field": "title", "message": "Title must not be blank" }
+  ]
 }
 ```
+
+`errors` is only present on 400 responses from Bean Validation.
 
 ## Getting Started
 
 ### Pre-requisites
-- Java 17 or higher
-- Maven 3.8+
-- Docker & Docker Compose (for PostgreSQL)
-- Node.js 18+ and npm (for frontend)
+- Docker & Docker Compose (for the one-command quick start)
+- *(Optional, for host-side dev)* Java 17+, Maven 3.8+, Node.js 20+, npm
 
-### Backend Setup
+### Quick start (recommended)
 
-1. **Clone the repository**
 ```bash
 git clone https://github.com/gozzerks/taskflow.git
 cd taskflow
+docker compose up
 ```
 
-2. **Start PostgreSQL with Docker Compose**
+That brings up PostgreSQL and the backend together. The backend waits for the DB's healthcheck before starting, so no race on first boot.
+
+| Service | URL |
+|---|---|
+| Backend API | `http://localhost:8080/api` |
+| Swagger UI | `http://localhost:8080/api/swagger-ui.html` |
+| PostgreSQL | `localhost:5432` |
+
+### Configuration
+
+Defaults live in `application.properties` and `docker-compose.yml` and work out of the box for local dev. To override anything (recommended for anything non-dev), copy `.env.example` to `.env`:
+
 ```bash
-docker-compose up -d
+cp .env.example .env
+# edit .env -- at a minimum replace JWT_SECRET with a fresh ≥64-byte base64 key
 ```
-
-This starts PostgreSQL on `localhost:5432` with:
-- Database: `taskflow`
-- Username: `taskflow`
-- Password: `taskflow123`
-
-3. **Build and run the backend**
-```bash
-cd backend
-mvn clean install
-mvn spring-boot:run
-```
-
-Backend API will be available at `http://localhost:8080`
 
 ### Testing the API
 
-You can test the API using curl, Postman, or any HTTP client:
-
 ```bash
-# Get all task lists
-curl http://localhost:8080/api/task-lists
+# Register a user and grab the token in one go:
+TOKEN=$(curl -sX POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"correct-horse-battery-staple"}' \
+  | jq -r .token)
 
-# Create a new task list
+# Create a task list using the token:
 curl -X POST http://localhost:8080/api/task-lists \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title":"My Tasks","description":"Personal task list"}'
 ```
 
+Or just open **`http://localhost:8080/api/swagger-ui.html`** and click around.
+
+### Host-side development (without the backend container)
+
+If you'd rather run the Spring Boot backend on the host (hot reload, IDE debugger, etc.):
+
+```bash
+# Start only Postgres
+docker compose up -d db
+
+# Run the backend on the host
+cd backend
+mvn spring-boot:run
+```
+
 ## Testing & Quality Assurance
+
+**130 tests, all passing.** Split across unit, slice, and repository layers. Security is verified both at the filter level (via `JwtServiceTest`) and at the controller level (via `AuthControllerTest` and owner-scoping tests on `TaskListServiceImplTest`).
+
+### Auth Tests
+
+Security layer testing using **JUnit 5**, **Mockito**, and **@WebMvcTest**:
+
+**JwtServiceTest.java** (3 tests):
+- Signs a token with the HS512 secret and parses back the subject claim
+- Rejects tokens signed with a different secret
+- Rejects expired tokens
+
+**AuthControllerTest.java** (6 tests):
+- `POST /api/auth/register` creates a user and returns a bearer token
+- Duplicate-username registration returns a meaningful 400
+- `POST /api/auth/login` happy-path returns a token for valid credentials
+- Wrong password returns 401 via `BadCredentialsException` handler
+- Missing / malformed request bodies return 400 with the `ErrorResponse` shape
+- Bean Validation failures surface per-field errors
+
+**TaskList ownership tests** (3 tests in `TaskListServiceImplTest.java`):
+- A user cannot read another user's task list (404, indistinguishable from missing)
+- A user cannot update another user's task list
+- A user cannot delete another user's task list
 
 ### Controller Tests
 
@@ -381,14 +494,15 @@ Data layer testing using **@DataJpaTest** with **H2 in-memory database**:
 
 Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
 
-**TaskListServiceImplTest.java** (15 tests):
+**TaskListServiceImplTest.java** (18 tests):
 - Find all operations (multiple lists, empty results)
 - Get task list (existing ID, non-existent ID)
 - Create task list (successful creation, ID conflict, title validation)
 - Update task list (successful update, timestamp updates, not found, ID mismatch)
 - Delete task list
+- Ownership enforcement (cross-user read/update/delete all reject)
 
-**TaskServiceImplTest.java** (21 tests):
+**TaskServiceImplTest.java** (24 tests):
 - Task creation (valid task list, default priority, forced OPEN status, validation)
 - Task retrieval (by list and task ID, empty results)
 - Task updates (field updates, not found, ID validation, priority/status required)
@@ -424,47 +538,38 @@ Global error handling testing using **MockMvc** and **@WebMvcTest**:
 - Request details inclusion in errors
 - Security (no stack trace exposure)
 
-### Test Coverage
+### Running the Tests
 ```bash
-# Run all controller tests
 cd backend
-mvn test
-
-# Run specific test class
-mvn test -Dtest=TaskControllerTest
-mvn test -Dtest=TaskListControllerTest
-mvn test -Dtest=TaskRepositoryTest
+mvn test                         # run the full suite (130 tests, ~5s)
+mvn test -Dtest=AuthControllerTest         # single class
+mvn test -Dtest=JwtServiceTest
 mvn test -Dtest=TaskListServiceImplTest
-mvn test -Dtest=TaskServiceImplTest
 ```
+
+Tests use an H2 in-memory database with `ddl-auto=create-drop` for isolation and speed. Flyway is disabled in the test profile so JPA annotations drive the test schema.
 
 ### Frontend Setup
 
-1. **Navigate to frontend directory**
 ```bash
 cd frontend
-```
-
-2. **Install dependencies**
-```bash
 npm install
+npm run dev          # http://localhost:5173 (Vite dev server, proxies /api to :8080)
+npm run lint
+npm run build
 ```
 
-3. **Start development server**
-```bash
-npm run dev
-```
+## Continuous Integration
 
-Frontend will start on `http://localhost:5173`
+GitHub Actions runs on every push and PR to `master`. The workflow (`.github/workflows/ci.yml`) defines three parallel jobs:
 
-### Running Backend Tests
+| Job | What it runs |
+|---|---|
+| `backend` | `mvn verify` — compile + full test suite against H2 |
+| `frontend` | `npm ci && npm run lint && npm run build` |
+| `docker` | `docker buildx build ./backend` — verifies the backend image still produces cleanly |
 
-```bash
-cd backend
-mvn test
-```
-
-Tests use H2 in-memory database for isolation and speed.
+All three run in parallel so a red check tells you exactly where to look.
 
 
 ## Technical Skills Demonstrated
@@ -474,37 +579,48 @@ Tests use H2 in-memory database for isolation and speed.
 - Dependency injection and IoC container
 - Spring MVC for REST controllers
 - Spring Data JPA for persistence
+- Externalised configuration via env-var placeholders
+
+ **Security (Spring Security 6 + JWT)**
+- Stateless security chain with a custom `JwtAuthFilter`
+- JJWT 0.12.x for signing (HS512) and parsing
+- BCrypt password hashing
+- Per-user resource scoping enforced at the service layer
+- Custom `AuthenticationEntryPoint` (401) and `AccessDeniedHandler` (403) that emit the project's `ErrorResponse` JSON shape
 
  **RESTful API Design**
 - Proper HTTP methods and status codes
 - Resource-based URLs
 - Nested resource handling
+- OpenAPI 3 / Swagger UI with `@Tag`, `@Operation`, `@ApiResponses`, `@Schema` annotations
 
  **Database Management**
-- PostgreSQL for production
+- PostgreSQL 16 for production
 - H2 for testing
-- JPA entity relationships
-- Database migrations with Hibernate
+- JPA entity relationships (User → TaskList → Task)
+- Flyway versioned migrations (`V1`, `V2`) with `ddl-auto=validate`
 
  **Code Organization**
 - Layered architecture (Controller → Service → Repository)
 - Separation of concerns
 - DTO pattern for API contracts
 
- **Error Handling**
-- Global exception handling
-- Custom error responses
-- Input validation
+ **Error Handling & Validation**
+- Global exception handling via `@ControllerAdvice`
+- Uniform `ErrorResponse` shape across 4xx / 5xx / security errors
+- Jakarta Bean Validation on every request DTO with field-level errors
 
- **Build & Deployment**
+ **Build, CI & Deployment**
 - Maven project management
-- Docker containerization
-- Environment configuration
+- Multi-stage Dockerfile (Maven build stage + slim JRE runtime)
+- `docker compose` stack with healthcheck-gated startup (Postgres → backend)
+- GitHub Actions CI with parallel backend / frontend / Docker-image jobs
 
 ### Frontend (Functional Interface)
 - Basic React component structure
 - TypeScript type definitions
 - REST API integration with Axios
+- Login / Register flow with JWT persistence via `localStorage` + Axios interceptor
 - NextUI component usage
 
 ## Learning Resources Used
@@ -519,6 +635,9 @@ Tests use H2 in-memory database for isolation and speed.
 This project allowed me to:
 1. **Strengthen Spring Boot fundamentals** - dependency injection, Spring MVC, Spring Data JPA
 2. **Implement REST API best practices** - proper endpoint design, HTTP methods, status codes
-3. **Work with relational databases** - entity relationships, transactions, query optimization
+3. **Work with relational databases** - entity relationships, transactions, Flyway migrations
 4. **Apply design patterns** - Repository, Service Layer, DTO patterns
 5. **Handle real-world scenarios** - error handling, validation, data mapping
+6. **Secure a REST API properly** - stateless JWT, Spring Security 6, per-user resource scoping, BCrypt
+7. **Document the API for consumers** - OpenAPI 3 / Swagger UI with annotated controllers and DTOs
+8. **Ship production-ready tooling** - Docker multi-stage build, `docker compose` stack, GitHub Actions CI, externalised secrets
