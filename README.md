@@ -1,5 +1,7 @@
 # TaskFlow - Task Management Application with Spring Boot Backend
 
+[![CI](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml/badge.svg)](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml)
+
 A task management application showcasing backend development expertise with Spring Boot, built as part of my continuous learning journey.
 
 ## Project Context
