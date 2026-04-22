@@ -1,6 +1,6 @@
 # TaskFlow - Task Management Application with Spring Boot Backend
 
-[![CI](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml/badge.svg)](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml)
+[![CI](https://github.com/Vivaldodjol/taskflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Vivaldodjol/taskflow/actions/workflows/ci.yml)
 
 A task management app built with Spring Boot. Backend-focused: JWT auth, a full REST API, OpenAPI docs, Docker, and GitHub Actions CI.
 
@@ -20,7 +20,7 @@ The frontend is there to make the API usable; the backend is where the focus is.
 
 ## Project Overview
 
-Users organize work through task lists and tasks. Spring Boot backend with PostgreSQL persistence, React frontend.
+Users organise work through task lists and tasks. Spring Boot backend with PostgreSQL persistence, React frontend.
 
 
 ## Key Features (Backend Implementation)
@@ -29,7 +29,7 @@ Users organize work through task lists and tasks. Spring Boot backend with Postg
 - **RESTful API Design**: Resource-based URLs, correct HTTP methods and status codes, nested resource handling
 - **Task List Management**: Complete CRUD operations with automatic progress calculation
 - **Task Operations**: Tasks are a nested resource under their parent task list
-- **Priority & Status System**: Enum-based task organization (LOW, MEDIUM, HIGH priority)
+- **Priority & Status System**: Enum-based task organisation (LOW, MEDIUM, HIGH priority)
 - **Database Relationships**: JPA one-to-many (TaskList → Tasks) with cascade delete
 - **Exception Handling**: Global exception handler with a uniform `ErrorResponse` shape
 - **Progress Tracking**: Service-layer logic for calculating task completion percentages
@@ -44,7 +44,7 @@ Users organize work through task lists and tasks. Spring Boot backend with Postg
 
 ### Production-Readiness
 - **Flyway** versioned migrations (`V1` baseline schema, `V2` users + task-list ownership)
-- **OpenAPI 3 / Swagger UI** (`/api/swagger-ui.html`) with bearer-auth integrated — click "Authorize" and paste a JWT to try protected endpoints
+- **OpenAPI 3 / Swagger UI** (`/api/swagger-ui.html`) with bearer-auth integrated — click "Authorise" and paste a JWT to try protected endpoints
 - **Bean Validation** (`@NotBlank`, `@Size`, etc.) on every request DTO with field-level error reporting
 - **Externalised secrets** via env vars (DB credentials, JWT secret) with safe dev defaults
 - **Multi-stage Dockerfile** and docker-compose wiring (Postgres + backend, one command)
@@ -375,7 +375,7 @@ cd taskflow
 docker compose up
 ```
 
-That brings up PostgreSQL and the backend together. The backend waits for the DB's healthcheck before starting, so no race on first boot.
+That brings up PostgreSQL and the backend together. The backend waits for the DB's health check before starting, so no race on first boot.
 
 | Service     | URL                                         |
 |-------------|---------------------------------------------|
