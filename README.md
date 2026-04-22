@@ -6,7 +6,7 @@ A task management application showcasing backend development expertise with Spri
 
 ## Project Context
 
-This project demonstrates my **backend development skills** with Spring Boot, Java, and RESTful API design. On top of the core CRUD layer, I've layered the production-readiness features a real backend portfolio needs:
+Beyond the core CRUD layer, I added the production-readiness pieces a backend portfolio actually needs:
 
 - Stateless **JWT authentication** with Spring Security 6 (register, login, per-user resource scoping)
 - **OpenAPI 3 / Swagger UI** documentation, annotated end-to-end
@@ -16,23 +16,21 @@ This project demonstrates my **backend development skills** with Spring Boot, Ja
 - **Externalised secrets** via environment variables (DB credentials, JWT signing key)
 - **GitHub Actions CI** — backend tests, frontend lint + build, and Docker image build
 
-The frontend serves as a functional interface to demonstrate the API; my primary expertise and focus is on the backend.
-
-**Current Focus**: Backend architecture, API design, authentication, and production-readiness tooling.
+The frontend is there to make the API usable; the backend is where the focus is.
 
 ## Project Overview
 
-TaskFlow is a task management application that enables users to organize their work through task lists and individual tasks. The application features a Spring Boot backend with PostgreSQL persistence and a React frontend interface.
+Users organize work through task lists and tasks. Spring Boot backend with PostgreSQL persistence, React frontend.
 
 
 ## Key Features (Backend Implementation)
 
 ### Core Backend Features
-- **RESTful API Design**: Fully functional REST endpoints following industry standards
+- **RESTful API Design**: Resource-based URLs, correct HTTP methods and status codes, nested resource handling
 - **Task List Management**: Complete CRUD operations with automatic progress calculation
-- **Task Operations**: Nested resource management within task lists
+- **Task Operations**: Tasks are a nested resource under their parent task list
 - **Priority & Status System**: Enum-based task organization (LOW, MEDIUM, HIGH priority)
-- **Database Relationships**: Proper JPA entity relationships and cascade operations
+- **Database Relationships**: JPA one-to-many (TaskList → Tasks) with cascade delete
 - **Exception Handling**: Global exception handler with a uniform `ErrorResponse` shape
 - **Progress Tracking**: Service-layer logic for calculating task completion percentages
 
@@ -181,25 +179,15 @@ frontend/src/
 ```
 
 
-### Design Patterns & Best Practices Implemented
+### Design Patterns & Best Practices
 
-**Repository Pattern**
-- Clean separation of data access logic
-- Spring Data JPA repositories with custom query methods
+**Repository Pattern** — Spring Data JPA with custom query methods where the defaults aren't enough.
 
-**Service Layer Pattern**
-- Business logic encapsulation
-- Transaction management with `@Transactional`
+**Service Layer** — business logic lives here, not in controllers. `@Transactional` where needed.
 
-**DTO Pattern**
-- API response/request objects separate from domain entities
-- Custom mappers for entity-DTO conversion
-- Calculated fields (e.g., progress percentage) in DTOs
+**DTO Pattern** — request/response objects are separate from JPA entities; mappers handle the conversion. DTOs carry calculated fields like progress percentage that don't belong on the entity.
 
-**Exception Handling**
-- Centralized error handling with `@ControllerAdvice`
-- Custom exception types for different error scenarios
-- Meaningful HTTP status codes and error messages
+**Exception Handling** — `@ControllerAdvice` catches everything and writes a uniform `ErrorResponse` shape, so no error leaks a stack trace or an inconsistent structure.
 
 **Progress Calculation Logic**
 ```java
@@ -268,7 +256,7 @@ public class Task {
 
 All endpoints live under the `/api` context path. Every endpoint except `/api/auth/**` and the Swagger docs requires an `Authorization: Bearer <jwt>` header.
 
-Interactive documentation is available at **`http://localhost:8080/api/swagger-ui.html`** — click **Authorize** and paste a JWT to try protected endpoints from the browser.
+Interactive documentation is available at **`http://localhost:8080/api/swagger-ui.html`** — click **Authorise** and paste a JWT to try protected endpoints from the browser.
 
 ### Authentication (public)
 ```http
@@ -389,11 +377,11 @@ docker compose up
 
 That brings up PostgreSQL and the backend together. The backend waits for the DB's healthcheck before starting, so no race on first boot.
 
-| Service | URL |
-|---|---|
-| Backend API | `http://localhost:8080/api` |
-| Swagger UI | `http://localhost:8080/api/swagger-ui.html` |
-| PostgreSQL | `localhost:5432` |
+| Service     | URL                                         |
+|-------------|---------------------------------------------|
+| Backend API | `http://localhost:8080/api`                 |
+| Swagger UI  | `http://localhost:8080/api/swagger-ui.html` |
+| PostgreSQL  | `localhost:5432`                            |
 
 ### Configuration
 
@@ -437,11 +425,11 @@ mvn spring-boot:run
 
 ## Testing & Quality Assurance
 
-**130 tests, all passing.** Split across unit, slice, and repository layers. Security is verified both at the filter level (via `JwtServiceTest`) and at the controller level (via `AuthControllerTest` and owner-scoping tests on `TaskListServiceImplTest`).
+**130 tests, all passing** - unit, slice, and repository layers. Security gets tested at two levels: the JWT filter itself (`JwtServiceTest`) and the HTTP boundary (`AuthControllerTest`, plus ownership enforcement in `TaskListServiceImplTest`).
 
 ### Auth Tests
 
-Security layer testing using **JUnit 5**, **Mockito**, and **@WebMvcTest**:
+JUnit 5, Mockito, and `@WebMvcTest`:
 
 **JwtServiceTest.java** (3 tests):
 - Signs a token with the HS512 secret and parses back the subject claim
@@ -463,7 +451,7 @@ Security layer testing using **JUnit 5**, **Mockito**, and **@WebMvcTest**:
 
 ### Controller Tests
 
-REST API testing using **MockMvc**, **Mockito**, and **AAA pattern** (Arrange-Act-Assert):
+MockMvc and Mockito:
 
 **TaskListControllerTest.java** (10 tests):
 - List operations (all lists, empty list scenarios)
@@ -482,7 +470,7 @@ REST API testing using **MockMvc**, **Mockito**, and **AAA pattern** (Arrange-Ac
 
 ### Repository Tests
 
-Data layer testing using **@DataJpaTest** with **H2 in-memory database**:
+`@DataJpaTest` with H2:
 
 **TaskRepositoryTest.java** (15 tests):
 - Custom query methods (`findByTaskListId`, `findByTaskListIdAndId`)
@@ -494,7 +482,7 @@ Data layer testing using **@DataJpaTest** with **H2 in-memory database**:
 
 ### Service Tests
 
-Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
+JUnit 5, Mockito, and AssertJ:
 
 **TaskListServiceImplTest.java** (18 tests):
 - Find all operations (multiple lists, empty results)
@@ -512,7 +500,7 @@ Business logic testing using **JUnit 5**, **Mockito**, and **AssertJ**:
 
 ### Mapper Tests
 
-Entity-DTO conversion testing using **JUnit 5** and **AssertJ**:
+JUnit 5 and AssertJ:
 
 **TaskMapperImplTest.java** (19 tests):
 - toDTO: Entity to DTO mapping (all fields, null handling, enums)
@@ -528,7 +516,7 @@ Entity-DTO conversion testing using **JUnit 5** and **AssertJ**:
 
 ### Exception Handler Tests
 
-Global error handling testing using **MockMvc** and **@WebMvcTest**:
+`@WebMvcTest` and MockMvc:
 
 **GlobalExceptionHandlerTest.java** (16 tests):
 - IllegalArgumentException handling (400 responses)
@@ -565,11 +553,11 @@ npm run build
 
 GitHub Actions runs on every push and PR to `master`. The workflow (`.github/workflows/ci.yml`) defines three parallel jobs:
 
-| Job | What it runs |
-|---|---|
-| `backend` | `mvn verify` — compile + full test suite against H2 |
-| `frontend` | `npm ci && npm run lint && npm run build` |
-| `docker` | `docker buildx build ./backend` — verifies the backend image still produces cleanly |
+| Job        | What it runs                                                                        |
+|------------|-------------------------------------------------------------------------------------|
+| `backend`  | `mvn verify` — compile + full test suite against H2                                 |
+| `frontend` | `npm ci && npm run lint && npm run build`                                           |
+| `docker`   | `docker buildx build ./backend` — verifies the backend image still produces cleanly |
 
 All three run in parallel so a red check tells you exactly where to look.
 
@@ -577,53 +565,15 @@ All three run in parallel so a red check tells you exactly where to look.
 ## Technical Skills Demonstrated
 
 ### Backend
- **Spring Boot Application Development**
-- Dependency injection and IoC container
-- Spring MVC for REST controllers
-- Spring Data JPA for persistence
-- Externalised configuration via env-var placeholders
-
- **Security (Spring Security 6 + JWT)**
-- Stateless security chain with a custom `JwtAuthFilter`
-- JJWT 0.12.x for signing (HS512) and parsing
-- BCrypt password hashing
-- Per-user resource scoping enforced at the service layer
-- Custom `AuthenticationEntryPoint` (401) and `AccessDeniedHandler` (403) that emit the project's `ErrorResponse` JSON shape
-
- **RESTful API Design**
-- Proper HTTP methods and status codes
-- Resource-based URLs
-- Nested resource handling
-- OpenAPI 3 / Swagger UI with `@Tag`, `@Operation`, `@ApiResponses`, `@Schema` annotations
-
- **Database Management**
-- PostgreSQL 16 for production
-- H2 for testing
-- JPA entity relationships (User → TaskList → Task)
-- Flyway versioned migrations (`V1`, `V2`) with `ddl-auto=validate`
-
- **Code Organization**
-- Layered architecture (Controller → Service → Repository)
-- Separation of concerns
-- DTO pattern for API contracts
-
- **Error Handling & Validation**
-- Global exception handling via `@ControllerAdvice`
-- Uniform `ErrorResponse` shape across 4xx / 5xx / security errors
-- Jakarta Bean Validation on every request DTO with field-level errors
-
- **Build, CI & Deployment**
-- Maven project management
-- Multi-stage Dockerfile (Maven build stage + slim JRE runtime)
-- `docker compose` stack with healthcheck-gated startup (Postgres → backend)
-- GitHub Actions CI with parallel backend / frontend / Docker-image jobs
+- **Spring Boot** — dependency injection, Spring MVC, Spring Data JPA, externalised config
+- **Security** — stateless JWT chain (Spring Security 6), JJWT 0.12.x HS512, BCrypt, per-user resource scoping, custom 401/403 error handlers
+- **API design** — resource-based REST, nested resources, OpenAPI 3 / Swagger UI annotated end-to-end
+- **Database** — PostgreSQL + H2 (tests), JPA entity relationships, Flyway versioned migrations
+- **Architecture** — Controller → Service → Repository layers, DTO pattern, uniform error shape via `@ControllerAdvice`
+- **Tooling** — Maven, multi-stage Docker build, `docker compose` with healthcheck-gated startup, GitHub Actions CI
 
 ### Frontend (Functional Interface)
-- Basic React component structure
-- TypeScript type definitions
-- REST API integration with Axios
-- Login / Register flow with JWT persistence via `localStorage` + Axios interceptor
-- NextUI component usage
+- React 18 + TypeScript, Vite build, Axios with JWT interceptor, NextUI components
 
 ## Learning Resources Used
 
@@ -634,12 +584,4 @@ All three run in parallel so a red check tells you exactly where to look.
 
 ## Why This Project?
 
-This project allowed me to:
-1. **Strengthen Spring Boot fundamentals** - dependency injection, Spring MVC, Spring Data JPA
-2. **Implement REST API best practices** - proper endpoint design, HTTP methods, status codes
-3. **Work with relational databases** - entity relationships, transactions, Flyway migrations
-4. **Apply design patterns** - Repository, Service Layer, DTO patterns
-5. **Handle real-world scenarios** - error handling, validation, data mapping
-6. **Secure a REST API properly** - stateless JWT, Spring Security 6, per-user resource scoping, BCrypt
-7. **Document the API for consumers** - OpenAPI 3 / Swagger UI with annotated controllers and DTOs
-8. **Ship production-ready tooling** - Docker multi-stage build, `docker compose` stack, GitHub Actions CI, externalised secrets
+I wanted a project that pushed beyond basic CRUD. Adding JWT auth, locking resources per user, covering three test layers, containerising the app, and wiring up CI gave me a much clearer picture of what production-ready actually means in practice.
