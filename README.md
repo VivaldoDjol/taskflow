@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml/badge.svg)](https://github.com/gozzerks/taskflow/actions/workflows/ci.yml)
 
-A task management app built with Spring Boot. Backend-focused: JWT auth, a full REST API, OpenAPI docs, Docker, and GitHub Actions CI.
+A task management application showcasing backend development expertise with Spring Boot, built as part of my continuous learning journey.
 
 ## Project Context
 
